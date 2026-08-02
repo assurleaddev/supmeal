@@ -2,21 +2,27 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import {
+  Box, Typography, Paper, Grid, Chip, Button, IconButton,
+  Avatar, TextField, Divider, FormControl, InputLabel, Select, MenuItem,
+} from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { recipeApi, mealPlanApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
 import { MealType } from '../../types';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
+import { Modal } from '../../components/ui/Modal';
 import { useForm } from 'react-hook-form';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  BREAKFAST: 'Petit-déjeuner',
-  LUNCH: 'Déjeuner',
-  DINNER: 'Dîner',
-  SNACK: 'Encas',
+  BREAKFAST: 'Petit-déjeuner', LUNCH: 'Déjeuner', DINNER: 'Dîner', SNACK: 'Encas',
 };
 
 export default function RecipeDetail() {
@@ -49,20 +55,13 @@ export default function RecipeDetail() {
       await recipeApi.delete(id!);
       toast.success('Recette supprimée');
       navigate('/recipes');
-    } catch {
-      toast.error('Erreur lors de la suppression');
-    }
+    } catch { toast.error('Erreur lors de la suppression'); }
   };
 
   const handleFavorite = async () => {
     try {
-      if (isFav) {
-        await recipeApi.unfavorite(id!);
-        setIsFav(false);
-      } else {
-        await recipeApi.favorite(id!);
-        setIsFav(true);
-      }
+      if (isFav) { await recipeApi.unfavorite(id!); setIsFav(false); }
+      else { await recipeApi.favorite(id!); setIsFav(true); }
       queryClient.invalidateQueries({ queryKey: ['recipes'] });
     } catch { toast.error('Erreur'); }
   };
@@ -88,229 +87,208 @@ export default function RecipeDetail() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-64 bg-gray-200 rounded-2xl animate-pulse" />
-        <div className="h-8 bg-gray-200 rounded animate-pulse w-1/2" />
-        <div className="h-4 bg-gray-200 rounded animate-pulse" />
-      </div>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Paper elevation={0} sx={{ height: 280, borderRadius: 3, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }} />
+        <Paper elevation={0} sx={{ height: 40, borderRadius: 2, bgcolor: 'grey.100', width: '50%', border: '1px solid', borderColor: 'divider' }} />
+      </Box>
     );
   }
 
-  if (!recipe) {
-    return <div className="text-center py-16 text-gray-500">Recette introuvable</div>;
-  }
+  if (!recipe) return <Typography textAlign="center" py={8} color="text.secondary">Recette introuvable</Typography>;
 
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Back */}
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900">
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
+    <Box sx={{ maxWidth: 900, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Back button */}
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} variant="text" color="inherit" size="small" sx={{ alignSelf: 'flex-start' }}>
         Retour
-      </button>
+      </Button>
 
-      {/* Hero */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-card">
+      {/* Hero card */}
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
         {imageUrl && (
-          <div className="h-72 overflow-hidden">
-            <img src={imageUrl} alt={recipe.title} className="w-full h-full object-cover" />
-          </div>
+          <Box sx={{ height: 280, overflow: 'hidden' }}>
+            <img src={imageUrl} alt={recipe.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </Box>
         )}
-        <div className="p-6">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-3xl font-display font-bold text-gray-900">{recipe.title}</h1>
-              <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-                <span>par {recipe.createdBy.username}</span>
+        <Box sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+            <Box>
+              <Typography variant="h4" fontWeight={700}>{recipe.title}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, color: 'text.secondary' }}>
+                <Typography variant="body2">par {recipe.createdBy.username}</Typography>
                 {recipe.cookbook && (
                   <>
-                    <span>•</span>
-                    <Link to={`/cookbooks/${recipe.cookbook.id}`} className="text-primary-600 hover:underline">
+                    <Typography variant="body2">•</Typography>
+                    <Typography component={Link} to={`/cookbooks/${recipe.cookbook.id}`} variant="body2" color="primary" sx={{ textDecoration: 'none' }}>
                       {recipe.cookbook.name}
-                    </Link>
+                    </Typography>
                   </>
                 )}
-              </div>
-            </div>
+              </Box>
+            </Box>
 
             {/* Actions */}
-            <div className="flex gap-2 flex-wrap">
-              <button
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant={isFav ? 'contained' : 'outlined'}
+                size="small"
+                startIcon={isFav ? <FavoriteIcon /> : <FavoriteBorderIcon />}
                 onClick={handleFavorite}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  isFav ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-                }`}
+                color={isFav ? 'error' : 'inherit'}
+                sx={!isFav ? { borderColor: 'divider', color: 'text.secondary' } : {}}
               >
-                <svg className={`h-4 w-4 ${isFav ? 'fill-red-500 text-red-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
                 {isFav ? 'Favori' : 'Favoris'}
-              </button>
-              <Button variant="outline" size="sm" onClick={() => setPlanModalOpen(true)}>
-                📅 Planifier
+              </Button>
+              <Button variant="outlined" size="small" startIcon={<CalendarMonthIcon />} onClick={() => setPlanModalOpen(true)} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>
+                Planifier
               </Button>
               {isOwner && (
                 <>
-                  <Link to={`/recipes/${id}/edit`}>
-                    <Button variant="outline" size="sm">✏️ Modifier</Button>
-                  </Link>
-                  <Button variant="danger" size="sm" onClick={handleDelete}>🗑️ Supprimer</Button>
+                  <Button component={Link} to={`/recipes/${id}/edit`} variant="outlined" size="small" startIcon={<EditIcon />} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>
+                    Modifier
+                  </Button>
+                  <Button variant="contained" size="small" startIcon={<DeleteIcon />} color="error" onClick={handleDelete}>
+                    Supprimer
+                  </Button>
                 </>
               )}
-            </div>
-          </div>
+            </Box>
+          </Box>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+          <Grid container spacing={2} mt={2}>
             {recipe.prepTime && (
-              <div className="text-center p-3 bg-gray-50 rounded-xl">
-                <div className="text-2xl font-bold text-primary-600">{recipe.prepTime}</div>
-                <div className="text-xs text-gray-500 mt-0.5">min prép.</div>
-              </div>
+              <Grid item xs={6} sm={3}>
+                <Paper elevation={0} sx={{ p: 1.5, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Typography variant="h5" fontWeight={700} color="primary.main">{recipe.prepTime}</Typography>
+                  <Typography variant="caption" color="text.secondary">min prép.</Typography>
+                </Paper>
+              </Grid>
             )}
             {recipe.cookTime && (
-              <div className="text-center p-3 bg-gray-50 rounded-xl">
-                <div className="text-2xl font-bold text-accent-600">{recipe.cookTime}</div>
-                <div className="text-xs text-gray-500 mt-0.5">min cuisson</div>
-              </div>
+              <Grid item xs={6} sm={3}>
+                <Paper elevation={0} sx={{ p: 1.5, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Typography variant="h5" fontWeight={700} color="secondary.main">{recipe.cookTime}</Typography>
+                  <Typography variant="caption" color="text.secondary">min cuisson</Typography>
+                </Paper>
+              </Grid>
             )}
             {totalTime > 0 && (
-              <div className="text-center p-3 bg-gray-50 rounded-xl">
-                <div className="text-2xl font-bold text-gray-700">{totalTime}</div>
-                <div className="text-xs text-gray-500 mt-0.5">min total</div>
-              </div>
+              <Grid item xs={6} sm={3}>
+                <Paper elevation={0} sx={{ p: 1.5, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Typography variant="h5" fontWeight={700}>{totalTime}</Typography>
+                  <Typography variant="caption" color="text.secondary">min total</Typography>
+                </Paper>
+              </Grid>
             )}
-            <div className="text-center p-3 bg-gray-50 rounded-xl">
-              <div className="text-2xl font-bold text-gray-700">{recipe.portions}</div>
-              <div className="text-xs text-gray-500 mt-0.5">personnes</div>
-            </div>
-          </div>
+            <Grid item xs={6} sm={3}>
+              <Paper elevation={0} sx={{ p: 1.5, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Typography variant="h5" fontWeight={700}>{recipe.portions}</Typography>
+                <Typography variant="caption" color="text.secondary">personnes</Typography>
+              </Paper>
+            </Grid>
+          </Grid>
 
-          {/* Description */}
-          {recipe.description && (
-            <p className="mt-4 text-gray-600 leading-relaxed">{recipe.description}</p>
-          )}
+          {recipe.description && <Typography variant="body1" color="text.secondary" mt={2} lineHeight={1.7}>{recipe.description}</Typography>}
 
-          {/* Tags */}
           {recipe.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              {recipe.tags.map(({ tag }) => (
-                <Badge key={tag.id} variant="primary">{tag.name}</Badge>
-              ))}
-            </div>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+              {recipe.tags.map(({ tag }) => <Chip key={tag.id} label={tag.name} size="small" color="primary" />)}
+            </Box>
           )}
 
-          {/* Source */}
           {recipe.sourceUrl && (
-            <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer"
-               className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:underline mt-4">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
+            <Button component="a" href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" size="small" startIcon={<OpenInNewIcon />} color="primary" sx={{ mt: 2, textDecoration: 'none' }}>
               Voir la source
-            </a>
+            </Button>
           )}
-        </div>
-      </div>
+        </Box>
+      </Paper>
 
       {/* Ingredients + Steps */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Ingredients */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            🥕 Ingrédients <span className="text-sm font-normal text-gray-500">({recipe.ingredients.length})</span>
-          </h2>
-          <ul className="space-y-2">
-            {recipe.ingredients.map((ri) => (
-              <li key={ri.id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
-                <div className="w-2 h-2 rounded-full bg-primary-400 flex-shrink-0" />
-                <span className="flex-1 text-gray-700 capitalize">{ri.ingredient.name}</span>
-                <span className="text-sm text-gray-500">
-                  {ri.quantity && `${ri.quantity}${ri.unit ? ` ${ri.unit}` : ''}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3, height: '100%' }}>
+            <Typography variant="h6" fontWeight={600} mb={2}>🥕 Ingrédients <Typography component="span" variant="body2" color="text.secondary">({recipe.ingredients.length})</Typography></Typography>
+            <Box component="ul" sx={{ p: 0, m: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {recipe.ingredients.map((ri) => (
+                <Box component="li" key={ri.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'primary.light', flexShrink: 0 }} />
+                  <Typography variant="body2" sx={{ flex: 1, textTransform: 'capitalize' }}>{ri.ingredient.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {ri.quantity && `${ri.quantity}${ri.unit ? ` ${ri.unit}` : ''}`}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+        </Grid>
 
-        {/* Steps */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            👨‍🍳 Préparation <span className="text-sm font-normal text-gray-500">({recipe.steps.length} étapes)</span>
-          </h2>
-          <ol className="space-y-4">
-            {recipe.steps.map((step) => (
-              <li key={step.id} className="flex gap-3">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold">
-                  {step.orderIndex + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="text-gray-700 leading-relaxed">{step.description}</p>
-                  {step.duration && (
-                    <span className="text-xs text-gray-400 mt-1">⏱ {step.duration} min</span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
+        <Grid item xs={12} md={6}>
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3, height: '100%' }}>
+            <Typography variant="h6" fontWeight={600} mb={2}>👨‍🍳 Préparation <Typography component="span" variant="body2" color="text.secondary">({recipe.steps.length} étapes)</Typography></Typography>
+            <Box component="ol" sx={{ p: 0, m: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {recipe.steps.map((step) => (
+                <Box component="li" key={step.id} sx={{ display: 'flex', gap: 1.5 }}>
+                  <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.main', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+                    {step.orderIndex + 1}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="body2" lineHeight={1.6}>{step.description}</Typography>
+                    {step.duration && <Typography variant="caption" color="text.secondary">⏱ {step.duration} min</Typography>}
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
 
       {/* Comments */}
       {recipe.cookbook && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            💬 Commentaires ({recipe.comments?.length ?? 0})
-          </h2>
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <Typography variant="h6" fontWeight={600} mb={2}>💬 Commentaires ({recipe.comments?.length ?? 0})</Typography>
 
-          <form onSubmit={handleComment} className="flex gap-3 mb-6">
-            <input
+          <Box component="form" onSubmit={handleComment} sx={{ display: 'flex', gap: 1.5, mb: 3 }}>
+            <TextField
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               placeholder="Ajouter un commentaire..."
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              size="small"
+              fullWidth
+              variant="outlined"
             />
-            <Button type="submit" size="sm" disabled={!commentText.trim()}>Publier</Button>
-          </form>
+            <Button type="submit" variant="contained" disabled={!commentText.trim()} size="small">Publier</Button>
+          </Box>
 
           {recipe.comments && recipe.comments.length > 0 ? (
-            <div className="space-y-4">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {recipe.comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-primary-700 text-sm font-semibold">
-                      {comment.user.username.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{comment.user.username}</span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(comment.createdAt).toLocaleDateString('fr-FR')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-0.5">{comment.content}</p>
-                  </div>
+                <Box key={comment.id} sx={{ display: 'flex', gap: 1.5 }}>
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.50', color: 'primary.main', fontSize: 13, fontWeight: 700 }}>
+                    {comment.user.username.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" fontWeight={600}>{comment.user.username}</Typography>
+                      <Typography variant="caption" color="text.secondary">{new Date(comment.createdAt).toLocaleDateString('fr-FR')}</Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" mt={0.25}>{comment.content}</Typography>
+                  </Box>
                   {comment.userId === user?.id && (
-                    <button
-                      onClick={() => handleDeleteComment(comment.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <IconButton size="small" onClick={() => handleDeleteComment(comment.id)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   )}
-                </div>
+                </Box>
               ))}
-            </div>
+            </Box>
           ) : (
-            <p className="text-gray-400 text-sm text-center py-4">Soyez le premier à commenter !</p>
+            <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>Soyez le premier à commenter !</Typography>
           )}
-        </div>
+        </Paper>
       )}
 
       {/* Plan modal */}
@@ -320,7 +298,7 @@ export default function RecipeDetail() {
         recipeId={id!}
         recipeTitle={recipe.title}
       />
-    </div>
+    </Box>
   );
 }
 
@@ -329,13 +307,7 @@ function AddToPlanModal({ isOpen, onClose, recipeId, recipeTitle }: {
 }) {
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, reset } = useForm({
-    defaultValues: {
-      planId: '',
-      newPlanName: '',
-      date: new Date().toISOString().split('T')[0],
-      mealType: 'LUNCH',
-      portions: 4,
-    },
+    defaultValues: { planId: '', newPlanName: '', date: new Date().toISOString().split('T')[0], mealType: 'LUNCH', portions: 4 },
   });
 
   const { data: plans } = useQuery({
@@ -352,18 +324,10 @@ function AddToPlanModal({ isOpen, onClose, recipeId, recipeTitle }: {
       if (!planId) {
         const weekStart = new Date(data.date);
         weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-        const newPlan = await mealPlanApi.create({
-          name: data.newPlanName || `Planning semaine du ${weekStart.toLocaleDateString('fr-FR')}`,
-          weekStart: weekStart.toISOString().split('T')[0],
-        });
+        const newPlan = await mealPlanApi.create({ name: data.newPlanName || `Planning semaine du ${weekStart.toLocaleDateString('fr-FR')}`, weekStart: weekStart.toISOString().split('T')[0] });
         planId = newPlan.data.data!.id;
       }
-      await mealPlanApi.addItem(planId, {
-        recipeId,
-        date: data.date,
-        mealType: data.mealType as MealType,
-        portions: Number(data.portions),
-      });
+      await mealPlanApi.addItem(planId, { recipeId, date: data.date, mealType: data.mealType as MealType, portions: Number(data.portions) });
       toast.success('Recette ajoutée au planning !');
       qc.invalidateQueries({ queryKey: ['meal-plans'] });
       reset();
@@ -377,45 +341,35 @@ function AddToPlanModal({ isOpen, onClose, recipeId, recipeTitle }: {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Ajouter au planning" size="sm">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <p className="text-sm text-gray-600">Planifier : <strong>{recipeTitle}</strong></p>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Typography variant="body2" color="text.secondary">Planifier : <strong>{recipeTitle}</strong></Typography>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Planning</label>
-          <select {...register('planId')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+        <FormControl fullWidth size="small">
+          <InputLabel>Planning</InputLabel>
+          <Select native label="Planning" {...register('planId')}>
             <option value="">+ Nouveau planning</option>
-            {plans?.map((p) => (
-              <option key={p.id} value={p.id}>{p.name || `Semaine du ${new Date(p.weekStart).toLocaleDateString('fr-FR')}`}</option>
-            ))}
-          </select>
-        </div>
+            {plans?.map((p) => <option key={p.id} value={p.id}>{p.name || `Semaine du ${new Date(p.weekStart).toLocaleDateString('fr-FR')}`}</option>)}
+          </Select>
+        </FormControl>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-          <input type="date" {...register('date', { required: true })}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
+        <TextField label="Date" type="date" size="small" fullWidth InputLabelProps={{ shrink: true }} {...register('date', { required: true })} />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Repas</label>
-          <select {...register('mealType')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-            {Object.entries(MEAL_TYPE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </div>
+        <FormControl fullWidth size="small">
+          <InputLabel>Repas</InputLabel>
+          <Select native label="Repas" {...register('mealType')}>
+            {Object.entries(MEAL_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </Select>
+        </FormControl>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Portions</label>
-          <input type="number" min={1} {...register('portions')}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
+        <TextField label="Portions" type="number" size="small" fullWidth inputProps={{ min: 1 }} {...register('portions')} />
 
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="ghost" type="button" onClick={onClose}>Annuler</Button>
-          <Button type="submit" loading={loading}>Ajouter</Button>
-        </div>
-      </form>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, pt: 1 }}>
+          <Button variant="text" color="inherit" onClick={onClose}>Annuler</Button>
+          <Button type="submit" variant="contained" disabled={loading}>
+            {loading ? 'Ajout...' : 'Ajouter'}
+          </Button>
+        </Box>
+      </Box>
     </Modal>
   );
 }

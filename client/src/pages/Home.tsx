@@ -2,12 +2,14 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { recipeApi, cookbookApi, mealPlanApi } from '../api';
 import { useAuthStore } from '../store/authStore';
-import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns';
+import { format, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Button } from '../components/ui/Button';
+import { Box, Typography, Grid, Paper, Chip, Button } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import RecipeCard from '../components/recipes/RecipeCard';
 
-const MEAL_LABELS = { BREAKFAST: 'Petit-déj', LUNCH: 'Déjeuner', DINNER: 'Dîner', SNACK: 'Encas' };
+const MEAL_LABELS: Record<string, string> = { BREAKFAST: 'Petit-déj', LUNCH: 'Déjeuner', DINNER: 'Dîner', SNACK: 'Encas' };
 
 export default function Home() {
   const { user } = useAuthStore();
@@ -36,98 +38,131 @@ export default function Home() {
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
 
   return (
-    <div className="space-y-8">
-      {/* Welcome */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold">{greeting}, {user?.username} ! 👋</h1>
-        <p className="text-primary-100 mt-1">
-          {format(today, "EEEE d MMMM yyyy", { locale: fr })}
-        </p>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* Welcome banner */}
+      <Paper sx={{ p: 3, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderRadius: 3, border: 'none' }}>
+        <Typography variant="h5" fontWeight={700} color="white">
+          {greeting}, {user?.username} ! 👋
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5 }}>
+          {format(today, 'EEEE d MMMM yyyy', { locale: fr })}
+        </Typography>
 
-        {/* Today's meals */}
         {todaysMeals.length > 0 ? (
-          <div className="mt-4">
-            <p className="text-primary-200 text-sm mb-2">Au menu aujourd'hui :</p>
-            <div className="flex flex-wrap gap-2">
+          <Box mt={2}>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', display: 'block', mb: 1 }}>Au menu aujourd'hui :</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {todaysMeals.map((item) => (
-                <Link key={item.id} to={`/recipes/${item.recipe.id}`}
-                  className="bg-white/20 hover:bg-white/30 transition-colors rounded-lg px-3 py-1.5 text-sm">
-                  {MEAL_LABELS[item.mealType]} : {item.recipe.title}
-                </Link>
+                <Chip
+                  key={item.id}
+                  label={`${MEAL_LABELS[item.mealType]} : ${item.recipe.title}`}
+                  component={Link}
+                  to={`/recipes/${item.recipe.id}`}
+                  clickable
+                  sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+                />
               ))}
-            </div>
-          </div>
+            </Box>
+          </Box>
         ) : (
-          <div className="mt-4 flex gap-3">
-            <Link to="/meal-planner">
-              <Button variant="secondary" size="sm">📅 Planifier cette semaine</Button>
-            </Link>
-            <Link to="/recipes/new">
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">+ Nouvelle recette</Button>
-            </Link>
-          </div>
+          <Box mt={2} sx={{ display: 'flex', gap: 1.5 }}>
+            <Button
+              component={Link}
+              to="/meal-planner"
+              variant="contained"
+              size="small"
+              startIcon={<CalendarMonthIcon />}
+              sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }, boxShadow: 'none' }}
+            >
+              Planifier cette semaine
+            </Button>
+            <Button
+              component={Link}
+              to="/recipes/new"
+              variant="text"
+              size="small"
+              startIcon={<AddIcon />}
+              sx={{ color: 'rgba(255,255,255,0.9)', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              Nouvelle recette
+            </Button>
+          </Box>
         )}
-      </div>
+      </Paper>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <Grid container spacing={2}>
         {[
           { label: 'Recettes', value: recentRecipes?.total ?? '...', icon: '🍽', to: '/recipes' },
           { label: 'Cookbooks', value: cookbooks?.length ?? '...', icon: '📚', to: '/cookbooks' },
           { label: 'Favoris', value: '...', icon: '❤️', to: '/recipes?favorites=true' },
           { label: 'Planifiés', value: weekPlan?.items.length ?? 0, icon: '📅', to: '/meal-planner' },
         ].map((stat) => (
-          <Link key={stat.label} to={stat.to}
-            className="bg-white rounded-2xl border border-gray-200 p-4 shadow-card hover:shadow-card-hover transition-all hover:-translate-y-0.5 text-center">
-            <div className="text-2xl mb-1">{stat.icon}</div>
-            <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-            <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
-          </Link>
+          <Grid item xs={6} md={3} key={stat.label}>
+            <Paper
+              component={Link}
+              to={stat.to}
+              elevation={0}
+              sx={{ p: 2, textAlign: 'center', border: '1px solid', borderColor: 'divider', borderRadius: 3, textDecoration: 'none', display: 'block', transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 2 } }}
+            >
+              <Typography fontSize={28}>{stat.icon}</Typography>
+              <Typography variant="h5" fontWeight={700}>{stat.value}</Typography>
+              <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
+            </Paper>
+          </Grid>
         ))}
-      </div>
+      </Grid>
 
       {/* Recent recipes */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Recettes récentes</h2>
-          <Link to="/recipes" className="text-sm text-primary-600 hover:text-primary-700 font-medium">Voir tout →</Link>
-        </div>
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="h6" fontWeight={600}>Recettes récentes</Typography>
+          <Typography component={Link} to="/recipes" variant="body2" color="primary" sx={{ textDecoration: 'none', fontWeight: 600 }}>Voir tout →</Typography>
+        </Box>
         {recentRecipes?.items.length === 0 ? (
-          <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
-            <div className="text-4xl mb-3">🍽️</div>
-            <p className="text-gray-500 mb-4">Vous n'avez encore aucune recette</p>
-            <Link to="/recipes/new"><Button>Créer ma première recette</Button></Link>
-          </div>
+          <Paper elevation={0} sx={{ p: 5, textAlign: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 3 }}>
+            <Typography fontSize={48} mb={1}>🍽️</Typography>
+            <Typography color="text.secondary" mb={2}>Vous n'avez encore aucune recette</Typography>
+            <Button component={Link} to="/recipes/new" variant="contained">Créer ma première recette</Button>
+          </Paper>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Grid container spacing={2}>
             {recentRecipes?.items.slice(0, 6).map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} />
+              <Grid item xs={12} sm={6} lg={4} key={recipe.id}>
+                <RecipeCard recipe={recipe} />
+              </Grid>
             ))}
-          </div>
+          </Grid>
         )}
-      </div>
+      </Box>
 
       {/* Cookbooks */}
       {(cookbooks?.length ?? 0) > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Mes cookbooks</h2>
-            <Link to="/cookbooks" className="text-sm text-primary-600 hover:text-primary-700 font-medium">Voir tout →</Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6" fontWeight={600}>Mes cookbooks</Typography>
+            <Typography component={Link} to="/cookbooks" variant="body2" color="primary" sx={{ textDecoration: 'none', fontWeight: 600 }}>Voir tout →</Typography>
+          </Box>
+          <Grid container spacing={2}>
             {cookbooks?.slice(0, 3).map((cb) => (
-              <Link key={cb.id} to={`/cookbooks/${cb.id}`}
-                className="bg-white rounded-2xl border border-gray-200 p-4 shadow-card hover:shadow-card-hover transition-all hover:-translate-y-0.5 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-2xl flex-shrink-0">📚</div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{cb.name}</p>
-                  <p className="text-xs text-gray-500">{cb._count?.recipes ?? 0} recettes • {cb._count?.members ?? 0} membres</p>
-                </div>
-              </Link>
+              <Grid item xs={12} sm={6} lg={4} key={cb.id}>
+                <Paper
+                  component={Link}
+                  to={`/cookbooks/${cb.id}`}
+                  elevation={0}
+                  sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, border: '1px solid', borderColor: 'divider', borderRadius: 3, textDecoration: 'none', transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 2 } }}
+                >
+                  <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: 'primary.50', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📚</Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body1" fontWeight={600} noWrap>{cb.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">{cb._count?.recipes ?? 0} recettes • {cb._count?.members ?? 0} membres</Typography>
+                  </Box>
+                </Paper>
+              </Grid>
             ))}
-          </div>
-        </div>
+          </Grid>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }

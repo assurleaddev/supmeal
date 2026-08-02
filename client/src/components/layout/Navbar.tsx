@@ -1,106 +1,91 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  AppBar, Toolbar, Box, Typography, IconButton, Avatar, Menu, MenuItem,
+  ListItemIcon, ListItemText, Divider, Button,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuthStore } from '../../store/authStore';
 import { disconnectSocket } from '../../hooks/useSocket';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleLogout = () => {
+    setAnchorEl(null);
     disconnectSocket();
     logout();
     navigate('/login');
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-lg font-bold">S</span>
-            </div>
-            <span className="font-display font-bold text-xl text-gray-900">SUPMEAL</span>
-          </Link>
+    <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', zIndex: 40 }}>
+      <Toolbar sx={{ maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, sm: 3, lg: 4 }, minHeight: 64 }}>
+        {/* Logo */}
+        <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none', mr: 'auto' }}>
+          <Box sx={{ width: 32, height: 32, bgcolor: 'primary.main', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography color="white" fontWeight={700} fontSize={18}>S</Typography>
+          </Box>
+          <Typography variant="h6" fontWeight={700} color="text.primary">SUPMEAL</Typography>
+        </Box>
 
-          {/* Right section */}
-          <div className="flex items-center gap-3">
-            {/* Quick add recipe */}
-            <Link
-              to="/recipes/new"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Quick add */}
+          <Button
+            component={Link}
+            to="/recipes/new"
+            variant="contained"
+            startIcon={<AddIcon />}
+            size="small"
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
+          >
+            Recette
+          </Button>
+
+          {/* User avatar button */}
+          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: 0.5 }}>
+            <Avatar
+              src={user?.avatar ?? undefined}
+              sx={{ width: 34, height: 34, bgcolor: 'primary.light', color: 'primary.dark', fontSize: 14, fontWeight: 700 }}
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Recette
-            </Link>
+              {user?.username?.charAt(0).toUpperCase()}
+            </Avatar>
+          </IconButton>
+        </Box>
 
-            {/* User dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
-                  {user?.avatar ? (
-                    <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-primary-700 font-semibold text-sm">
-                      {user?.username?.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <span className="hidden sm:block text-sm font-medium text-gray-700">{user?.username}</span>
-                <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {dropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-gray-200 shadow-lg z-20 py-1">
-                    <Link
-                      to="/settings"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0..." />
-                      </svg>
-                      Paramètres
-                    </Link>
-                    <Link
-                      to="/data"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      Import / Export
-                    </Link>
-                    <div className="border-t border-gray-100 my-1" />
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      Déconnexion
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
+        {/* Dropdown menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={() => setAnchorEl(null)}
+          PaperProps={{ sx: { borderRadius: 2, minWidth: 180, mt: 0.5 } }}
+          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        >
+          <Box sx={{ px: 2, py: 1 }}>
+            <Typography variant="body2" fontWeight={600}>{user?.username}</Typography>
+          </Box>
+          <Divider />
+          <MenuItem component={Link} to="/settings" onClick={() => setAnchorEl(null)}>
+            <ListItemIcon><SettingsOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Paramètres</ListItemText>
+          </MenuItem>
+          <MenuItem component={Link} to="/data" onClick={() => setAnchorEl(null)}>
+            <ListItemIcon><DownloadOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Import / Export</ListItemText>
+          </MenuItem>
+          <Divider />
+          <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+            <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
+            <ListItemText>Déconnexion</ListItemText>
+          </MenuItem>
+        </Menu>
+      </Toolbar>
+    </AppBar>
   );
 }

@@ -3,12 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import {
+  Box, Typography, Paper, Grid, Button, IconButton, Chip,
+  FormControl, InputLabel, Select,
+} from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import { recipeApi, cookbookApi, tagApi } from '../../api';
 import { RecipeFormData } from '../../types';
-import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 export default function CreateEditRecipe() {
   const { id } = useParams<{ id?: string }>();
@@ -46,7 +52,6 @@ export default function CreateEditRecipe() {
     queryFn: () => tagApi.list().then((r) => r.data.data!),
   });
 
-  // Load existing recipe for edit
   useEffect(() => {
     if (!isEditing || !id) return;
     recipeApi.get(id).then((res) => {
@@ -60,24 +65,12 @@ export default function CreateEditRecipe() {
         sourceUrl: r.sourceUrl ?? '',
         isPersonal: r.isPersonal,
         cookbookId: r.cookbookId ?? undefined,
-        ingredients: r.ingredients.map((ri) => ({
-          name: ri.ingredient.name,
-          quantity: ri.quantity ?? undefined,
-          unit: ri.unit ?? '',
-          notes: ri.notes ?? '',
-          orderIndex: ri.orderIndex,
-        })),
-        steps: r.steps.map((s) => ({
-          description: s.description,
-          duration: s.duration ?? undefined,
-          orderIndex: s.orderIndex,
-        })),
+        ingredients: r.ingredients.map((ri) => ({ name: ri.ingredient.name, quantity: ri.quantity ?? undefined, unit: ri.unit ?? '', notes: ri.notes ?? '', orderIndex: ri.orderIndex })),
+        steps: r.steps.map((s) => ({ description: s.description, duration: s.duration ?? undefined, orderIndex: s.orderIndex })),
       });
       setTags(r.tags.map((rt) => rt.tag.name));
       setCookbookId(r.cookbookId ?? '');
-      if (r.imageUrl) {
-        setImagePreview(r.imageUrl.startsWith('http') ? r.imageUrl : `${API_URL}${r.imageUrl}`);
-      }
+      if (r.imageUrl) setImagePreview(r.imageUrl.startsWith('http') ? r.imageUrl : `${API_URL}${r.imageUrl}`);
     });
   }, [isEditing, id]);
 
@@ -92,9 +85,7 @@ export default function CreateEditRecipe() {
 
   const addTag = (tagName: string) => {
     const normalized = tagName.toLowerCase().trim();
-    if (normalized && !tags.includes(normalized)) {
-      setTags((prev) => [...prev, normalized]);
-    }
+    if (normalized && !tags.includes(normalized)) setTags((prev) => [...prev, normalized]);
     setTagInput('');
   };
 
@@ -109,9 +100,7 @@ export default function CreateEditRecipe() {
         ingredients: data.ingredients.map((ing, i) => ({ ...ing, orderIndex: i })),
         steps: data.steps.map((step, i) => ({ ...step, orderIndex: i })),
       };
-
       let recipeId: string;
-
       if (isEditing && id) {
         await recipeApi.update(id, payload);
         recipeId = id;
@@ -121,12 +110,7 @@ export default function CreateEditRecipe() {
         recipeId = res.data.data!.id;
         toast.success('Recette créée !');
       }
-
-      // Upload image if selected
-      if (imageFile) {
-        await recipeApi.uploadImage(recipeId, imageFile);
-      }
-
+      if (imageFile) await recipeApi.uploadImage(recipeId, imageFile);
       queryClient.invalidateQueries({ queryKey: ['recipes'] });
       navigate(`/recipes/${recipeId}`);
     } catch (err: any) {
@@ -137,205 +121,156 @@ export default function CreateEditRecipe() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <Box sx={{ maxWidth: 800, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {isEditing ? 'Modifier la recette' : 'Nouvelle recette'}
-        </h1>
-      </div>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <IconButton onClick={() => navigate(-1)}><ArrowBackIcon /></IconButton>
+        <Typography variant="h5" fontWeight={700}>{isEditing ? 'Modifier la recette' : 'Nouvelle recette'}</Typography>
+      </Box>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Basic info */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Informations générales</h2>
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="h6" fontWeight={600}>Informations générales</Typography>
+          <Input label="Titre de la recette *" placeholder="Bœuf bourguignon, tarte aux pommes..." error={errors.title?.message} {...register('title', { required: 'Titre requis' })} />
+          <Textarea label="Description" placeholder="Une brève description de la recette..." {...register('description')} />
 
-          <Input
-            label="Titre de la recette"
-            required
-            placeholder="Bœuf bourguignon, tarte aux pommes..."
-            error={errors.title?.message}
-            {...register('title', { required: 'Titre requis' })}
-          />
-
-          <Textarea
-            label="Description"
-            placeholder="Une brève description de la recette..."
-            {...register('description')}
-          />
-
-          {/* Cookbook assignment */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assigner à un cookbook</label>
-            <select
-              value={cookbookId}
-              onChange={(e) => setCookbookId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
+          <FormControl fullWidth size="small">
+            <InputLabel>Assigner à un cookbook</InputLabel>
+            <Select native label="Assigner à un cookbook" value={cookbookId} onChange={(e) => setCookbookId(e.target.value as string)}>
               <option value="">Recette personnelle</option>
               {cookbooks?.filter((cb) => ['CREATOR', 'EDITOR'].includes(cb.myRole)).map((cb) => (
                 <option key={cb.id} value={cb.id}>{cb.name}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormControl>
 
-          {/* Times & portions */}
-          <div className="grid grid-cols-3 gap-4">
-            <Input label="Prép. (min)" type="number" min={0} {...register('prepTime', { valueAsNumber: true })} />
-            <Input label="Cuisson (min)" type="number" min={0} {...register('cookTime', { valueAsNumber: true })} />
-            <Input label="Portions" type="number" min={1} required
-              error={errors.portions?.message}
-              {...register('portions', { required: true, valueAsNumber: true, min: 1 })} />
-          </div>
+          <Grid container spacing={2}>
+            <Grid item xs={4}><Input label="Prép. (min)" type="number" inputProps={{ min: 0 }} {...register('prepTime', { valueAsNumber: true })} /></Grid>
+            <Grid item xs={4}><Input label="Cuisson (min)" type="number" inputProps={{ min: 0 }} {...register('cookTime', { valueAsNumber: true })} /></Grid>
+            <Grid item xs={4}><Input label="Portions *" type="number" inputProps={{ min: 1 }} error={errors.portions?.message} {...register('portions', { required: true, valueAsNumber: true, min: 1 })} /></Grid>
+          </Grid>
 
           <Input label="URL de la source" type="url" placeholder="https://..." {...register('sourceUrl')} />
-        </div>
+        </Paper>
 
         {/* Image */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Photo</h2>
-          <div className="flex items-center gap-4">
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <Typography variant="h6" fontWeight={600} mb={2}>Photo</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {imagePreview && (
-              <div className="w-32 h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-              </div>
+              <Box sx={{ width: 120, height: 88, borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
+                <img src={imagePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </Box>
             )}
-            <label className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors">
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-              <div className="text-2xl mb-1">📷</div>
-              <p className="text-sm text-gray-500">{imagePreview ? 'Changer la photo' : 'Ajouter une photo'}</p>
-              <p className="text-xs text-gray-400">JPG, PNG, WebP — max 5 Mo</p>
-            </label>
-          </div>
-        </div>
+            <Box
+              component="label"
+              sx={{ flex: 1, border: '2px dashed', borderColor: 'divider', borderRadius: 3, p: 3, textAlign: 'center', cursor: 'pointer', '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.50' } }}
+            >
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageChange} />
+              <Typography fontSize={28} mb={0.5}>📷</Typography>
+              <Typography variant="body2" color="text.secondary">{imagePreview ? 'Changer la photo' : 'Ajouter une photo'}</Typography>
+              <Typography variant="caption" color="text.disabled">JPG, PNG, WebP — max 5 Mo</Typography>
+            </Box>
+          </Box>
+        </Paper>
 
         {/* Ingredients */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">🥕 Ingrédients</h2>
-            <Button type="button" variant="outline" size="sm"
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6" fontWeight={600}>🥕 Ingrédients</Typography>
+            <Button type="button" variant="outlined" size="small" startIcon={<AddIcon />}
               onClick={() => addIngredient({ name: '', quantity: undefined, unit: '', notes: '', orderIndex: ingredientFields.length })}>
-              + Ajouter
+              Ajouter
             </Button>
-          </div>
-          <div className="space-y-3">
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {ingredientFields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-5">
-                  <Input placeholder="Ingrédient*" {...register(`ingredients.${index}.name`, { required: 'Requis' })}
-                    error={errors.ingredients?.[index]?.name?.message} />
-                </div>
-                <div className="col-span-2">
-                  <Input placeholder="Qté" type="number" step="0.01" min={0} {...register(`ingredients.${index}.quantity`, { valueAsNumber: true })} />
-                </div>
-                <div className="col-span-2">
-                  <Input placeholder="Unité" {...register(`ingredients.${index}.unit`)} />
-                </div>
-                <div className="col-span-2">
-                  <Input placeholder="Notes" {...register(`ingredients.${index}.notes`)} />
-                </div>
-                <button type="button" onClick={() => removeIngredient(index)}
-                  className="col-span-1 mt-1 p-2 text-gray-400 hover:text-red-500 transition-colors">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+              <Grid container spacing={1} key={field.id} alignItems="flex-start">
+                <Grid item xs={5}><Input placeholder="Ingrédient *" error={errors.ingredients?.[index]?.name?.message} {...register(`ingredients.${index}.name`, { required: 'Requis' })} /></Grid>
+                <Grid item xs={2}><Input placeholder="Qté" type="number" inputProps={{ step: '0.01', min: 0 }} {...register(`ingredients.${index}.quantity`, { valueAsNumber: true })} /></Grid>
+                <Grid item xs={2}><Input placeholder="Unité" {...register(`ingredients.${index}.unit`)} /></Grid>
+                <Grid item xs={2}><Input placeholder="Notes" {...register(`ingredients.${index}.notes`)} /></Grid>
+                <Grid item xs={1} sx={{ display: 'flex', justifyContent: 'center', pt: 0.5 }}>
+                  <IconButton size="small" onClick={() => removeIngredient(index)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Grid>
+              </Grid>
             ))}
-          </div>
-        </div>
+          </Box>
+        </Paper>
 
         {/* Steps */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">👨‍🍳 Étapes de préparation</h2>
-            <Button type="button" variant="outline" size="sm"
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6" fontWeight={600}>👨‍🍳 Étapes de préparation</Typography>
+            <Button type="button" variant="outlined" size="small" startIcon={<AddIcon />}
               onClick={() => addStep({ description: '', duration: undefined, orderIndex: stepFields.length })}>
-              + Ajouter
+              Ajouter
             </Button>
-          </div>
-          <div className="space-y-3">
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {stepFields.map((field, index) => (
-              <div key={field.id} className="flex gap-3 items-start">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold mt-2">
+              <Box key={field.id} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0, mt: 0.5 }}>
                   {index + 1}
-                </div>
-                <div className="flex-1 grid grid-cols-5 gap-2">
-                  <div className="col-span-4">
-                    <Textarea placeholder="Décrivez cette étape..." rows={2}
-                      {...register(`steps.${index}.description`, { required: 'Description requise' })}
-                      error={errors.steps?.[index]?.description?.message} />
-                  </div>
-                  <Input type="number" min={0} placeholder="min" {...register(`steps.${index}.duration`, { valueAsNumber: true })} />
-                </div>
-                <button type="button" onClick={() => removeStep(index)}
-                  className="mt-2 p-1.5 text-gray-400 hover:text-red-500 transition-colors">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+                </Box>
+                <Grid container spacing={1} sx={{ flex: 1 }}>
+                  <Grid item xs={10}>
+                    <Textarea placeholder="Décrivez cette étape..." rows={2} error={errors.steps?.[index]?.description?.message} {...register(`steps.${index}.description`, { required: 'Description requise' })} />
+                  </Grid>
+                  <Grid item xs={2}>
+                    <Input type="number" inputProps={{ min: 0 }} placeholder="min" {...register(`steps.${index}.duration`, { valueAsNumber: true })} />
+                  </Grid>
+                </Grid>
+                <IconButton size="small" onClick={() => removeStep(index)} sx={{ mt: 0.5, color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
             ))}
-          </div>
-        </div>
+          </Box>
+        </Paper>
 
         {/* Tags */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">🏷️ Tags & catégories</h2>
-          <div className="flex gap-2 mb-3">
-            <input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput); } }}
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <Typography variant="h6" fontWeight={600} mb={2}>🏷️ Tags & catégories</Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Input
               placeholder="Ajouter un tag..."
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={tagInput}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTagInput(e.target.value)}
+              onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput); } }}
+              sx={{ flex: 1 }}
             />
-            <Button type="button" variant="outline" size="sm" onClick={() => addTag(tagInput)}>Ajouter</Button>
-          </div>
+            <Button type="button" variant="outlined" size="small" onClick={() => addTag(tagInput)}>Ajouter</Button>
+          </Box>
 
-          {/* Current tags */}
           {tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
               {tags.map((tag) => (
-                <span key={tag} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary-100 text-primary-800 rounded-full text-xs font-medium">
-                  {tag}
-                  <button type="button" onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
-                    className="hover:bg-primary-200 rounded-full p-0.5">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
+                <Chip key={tag} label={tag} color="primary" size="small" onDelete={() => setTags((prev) => prev.filter((t) => t !== tag))} />
               ))}
-            </div>
+            </Box>
           )}
 
-          {/* Suggested tags */}
           {suggestedTags && (
-            <div className="flex flex-wrap gap-1.5">
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
               {suggestedTags.filter((t) => !tags.includes(t.name)).slice(0, 20).map((tag) => (
-                <button key={tag.id} type="button" onClick={() => addTag(tag.name)}
-                  className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full text-xs transition-colors">
-                  + {tag.name}
-                </button>
+                <Chip key={tag.id} label={`+ ${tag.name}`} size="small" variant="outlined" onClick={() => addTag(tag.name)} sx={{ cursor: 'pointer' }} />
               ))}
-            </div>
+            </Box>
           )}
-        </div>
+        </Paper>
 
         {/* Submit */}
-        <div className="flex gap-3 justify-end">
-          <Button variant="ghost" type="button" onClick={() => navigate(-1)}>Annuler</Button>
-          <Button type="submit" loading={loading} size="lg">
-            {isEditing ? 'Enregistrer les modifications' : 'Créer la recette'}
+        <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
+          <Button type="button" variant="text" color="inherit" onClick={() => navigate(-1)}>Annuler</Button>
+          <Button type="submit" variant="contained" size="large" disabled={loading}>
+            {loading ? 'Enregistrement...' : (isEditing ? 'Enregistrer les modifications' : 'Créer la recette')}
           </Button>
-        </div>
-      </form>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 }

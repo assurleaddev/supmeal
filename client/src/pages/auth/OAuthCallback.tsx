@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuthStore } from '../../store/authStore';
 import { userApi } from '../../api';
 import toast from 'react-hot-toast';
@@ -20,7 +21,6 @@ export default function OAuthCallback() {
       return;
     }
 
-    // Store tokens temporarily to make the API call
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
 
@@ -40,11 +40,9 @@ export default function OAuthCallback() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-600">Connexion en cours...</p>
-      </div>
-    </div>
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2, bgcolor: 'background.default' }}>
+      <CircularProgress color="primary" />
+      <Typography variant="body2" color="text.secondary">Connexion en cours...</Typography>
+    </Box>
   );
 }

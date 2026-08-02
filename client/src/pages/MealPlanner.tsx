@@ -3,30 +3,26 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import {
+  Box, Typography, Paper, Button, Chip, TextField, IconButton, Divider,
+} from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import TodayIcon from '@mui/icons-material/Today';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import { mealPlanApi, recipeApi } from '../api';
 import { MealType, MealPlanItem, Recipe } from '../types';
-import { Button } from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
-import { useForm } from 'react-hook-form';
+import { Modal } from '../components/ui/Modal';
 
 const MEAL_TYPES: MealType[] = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'];
-const MEAL_LABELS: Record<MealType, string> = {
-  BREAKFAST: 'Petit-déjeuner',
-  LUNCH: 'Déjeuner',
-  DINNER: 'Dîner',
-  SNACK: 'Encas',
-};
-const MEAL_ICONS: Record<MealType, string> = {
-  BREAKFAST: '☀️', LUNCH: '🌞', DINNER: '🌙', SNACK: '🍎',
-};
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const MEAL_LABELS: Record<MealType, string> = { BREAKFAST: 'Petit-déjeuner', LUNCH: 'Déjeuner', DINNER: 'Dîner', SNACK: 'Encas' };
+const MEAL_ICONS: Record<MealType, string> = { BREAKFAST: '☀️', LUNCH: '🌞', DINNER: '🌙', SNACK: '🍎' };
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 export default function MealPlanner() {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-    const now = new Date();
-    return startOfWeek(now, { weekStartsOn: 1 });
-  });
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [addItemTarget, setAddItemTarget] = useState<{ date: Date; mealType: MealType } | null>(null);
@@ -35,7 +31,6 @@ export default function MealPlanner() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   const queryClient = useQueryClient();
-
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const weekStartStr = format(currentWeekStart, 'yyyy-MM-dd');
 
@@ -44,7 +39,6 @@ export default function MealPlanner() {
     queryFn: () => mealPlanApi.list().then((r) => r.data.data!),
   });
 
-  // Find or use selected plan for this week
   const currentPlan = selectedPlanId
     ? plans?.find((p) => p.id === selectedPlanId)
     : plans?.find((p) => p.weekStart.startsWith(weekStartStr));
@@ -63,10 +57,7 @@ export default function MealPlanner() {
 
   const handleCreatePlan = async () => {
     try {
-      const res = await mealPlanApi.create({
-        name: `Semaine du ${format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}`,
-        weekStart: weekStartStr,
-      });
+      const res = await mealPlanApi.create({ name: `Semaine du ${format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}`, weekStart: weekStartStr });
       setSelectedPlanId(res.data.data!.id);
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] });
       toast.success('Planning créé !');
@@ -76,11 +67,7 @@ export default function MealPlanner() {
   const handleAddItem = async () => {
     if (!addItemTarget || !selectedRecipe || !currentPlan) return;
     try {
-      await mealPlanApi.addItem(currentPlan.id, {
-        recipeId: selectedRecipe.id,
-        date: format(addItemTarget.date, 'yyyy-MM-dd'),
-        mealType: addItemTarget.mealType,
-      });
+      await mealPlanApi.addItem(currentPlan.id, { recipeId: selectedRecipe.id, date: format(addItemTarget.date, 'yyyy-MM-dd'), mealType: addItemTarget.mealType });
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] });
       toast.success('Ajouté au planning !');
       setAddItemOpen(false);
@@ -96,233 +83,197 @@ export default function MealPlanner() {
     } catch { toast.error('Erreur'); }
   };
 
-  const openAddItem = (date: Date, mealType: MealType) => {
-    setAddItemTarget({ date, mealType });
-    setAddItemOpen(true);
-  };
-
   const getItemsFor = (date: Date, mealType: MealType): MealPlanItem[] => {
     if (!currentPlan) return [];
-    return currentPlan.items.filter((item) => {
-      const itemDate = parseISO(item.date);
-      return isSameDay(itemDate, date) && item.mealType === mealType;
-    });
+    return currentPlan.items.filter((item) => isSameDay(parseISO(item.date), date) && item.mealType === mealType);
   };
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Planning de repas</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Semaine du {format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}
-          </p>
-        </div>
-        <div className="flex gap-2 items-center">
-          <Button variant="outline" size="sm" onClick={() => setCurrentWeekStart((d) => addDays(d, -7))}>← Semaine précédente</Button>
-          <Button variant="outline" size="sm" onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
-            Aujourd'hui
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setCurrentWeekStart((d) => addDays(d, 7))}>Semaine suivante →</Button>
-          {currentPlan && (
-            <Button variant="secondary" size="sm" onClick={() => setShoppingListOpen(true)}>
-              🛒 Liste de courses
-            </Button>
-          )}
-        </div>
-      </div>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Planning de repas</Typography>
+          <Typography variant="body2" color="text.secondary">Semaine du {format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Button variant="outlined" size="small" startIcon={<ChevronLeftIcon />} onClick={() => setCurrentWeekStart((d) => addDays(d, -7))} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Préc.</Button>
+          <Button variant="outlined" size="small" startIcon={<TodayIcon />} onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Aujourd'hui</Button>
+          <Button variant="outlined" size="small" endIcon={<ChevronRightIcon />} onClick={() => setCurrentWeekStart((d) => addDays(d, 7))} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Suiv.</Button>
+          {currentPlan && <Button variant="contained" size="small" startIcon={<ShoppingCartIcon />} onClick={() => setShoppingListOpen(true)}>Liste de courses</Button>}
+        </Box>
+      </Box>
 
       {/* Plan selector */}
       {plans && plans.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {plans.map((p) => (
-            <button
+            <Chip
               key={p.id}
+              label={p.name || `Semaine du ${format(parseISO(p.weekStart), 'd MMM', { locale: fr })}`}
               onClick={() => setSelectedPlanId(p.id)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                currentPlan?.id === p.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {p.name || `Semaine du ${format(parseISO(p.weekStart), 'd MMM', { locale: fr })}`}
-            </button>
+              color={currentPlan?.id === p.id ? 'primary' : 'default'}
+              variant={currentPlan?.id === p.id ? 'filled' : 'outlined'}
+              sx={{ cursor: 'pointer' }}
+            />
           ))}
-        </div>
+        </Box>
       )}
 
       {/* Create plan CTA */}
       {!currentPlan && (
-        <div className="text-center py-8 bg-white rounded-2xl border border-dashed border-gray-300">
-          <div className="text-4xl mb-3">📅</div>
-          <h3 className="font-semibold text-gray-900 mb-2">Aucun planning pour cette semaine</h3>
-          <p className="text-gray-500 text-sm mb-4">Créez un planning pour organiser vos repas</p>
-          <Button onClick={handleCreatePlan}>Créer le planning de la semaine</Button>
-        </div>
+        <Paper elevation={0} sx={{ p: 4, textAlign: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 3 }}>
+          <Typography fontSize={48} mb={1}>📅</Typography>
+          <Typography variant="h6" fontWeight={600} mb={0.5}>Aucun planning pour cette semaine</Typography>
+          <Typography variant="body2" color="text.secondary" mb={2}>Créez un planning pour organiser vos repas</Typography>
+          <Button variant="contained" onClick={handleCreatePlan}>Créer le planning de la semaine</Button>
+        </Paper>
       )}
 
       {/* Weekly grid */}
       {currentPlan && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-card overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-gray-100">
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
+          {/* Day headers */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: 'divider' }}>
             {weekDays.map((day) => (
-              <div
-                key={day.toISOString()}
-                className={`text-center py-3 px-2 border-r border-gray-100 last:border-0 ${
-                  isSameDay(day, new Date()) ? 'bg-primary-50' : ''
-                }`}
-              >
-                <div className="text-xs text-gray-500 uppercase tracking-wide">
+              <Box key={day.toISOString()} sx={{ textAlign: 'center', py: 1.5, px: 1, borderRight: '1px solid', borderColor: 'divider', '&:last-child': { borderRight: 'none' }, bgcolor: isSameDay(day, new Date()) ? 'primary.50' : 'transparent' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   {format(day, 'EEE', { locale: fr })}
-                </div>
-                <div className={`text-lg font-bold mt-0.5 ${isSameDay(day, new Date()) ? 'text-primary-600' : 'text-gray-900'}`}>
+                </Typography>
+                <Typography variant="body1" fontWeight={700} color={isSameDay(day, new Date()) ? 'primary.main' : 'text.primary'}>
                   {format(day, 'd')}
-                </div>
-              </div>
+                </Typography>
+              </Box>
             ))}
-          </div>
+          </Box>
 
+          {/* Meal rows */}
           {MEAL_TYPES.map((mealType) => (
-            <div key={mealType} className="border-b border-gray-100 last:border-0">
-              <div className="grid grid-cols-7">
+            <Box key={mealType} sx={{ borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
                 {weekDays.map((day) => {
                   const items = getItemsFor(day, mealType);
                   return (
-                    <div
+                    <Box
                       key={day.toISOString()}
-                      className={`min-h-[90px] p-2 border-r border-gray-100 last:border-0 ${
-                        isSameDay(day, new Date()) ? 'bg-primary-50/30' : ''
-                      }`}
+                      sx={{ minHeight: 90, p: 1, borderRight: '1px solid', borderColor: 'divider', '&:last-child': { borderRight: 'none' }, bgcolor: isSameDay(day, new Date()) ? 'rgba(22, 163, 74, 0.03)' : 'transparent', display: 'flex', flexDirection: 'column', gap: 0.5 }}
                     >
-                      {/* Meal type label — only on first column */}
-                      {day === weekDays[0] && (
-                        <div className="text-xs text-gray-400 mb-1 whitespace-nowrap hidden">
-                          {MEAL_ICONS[mealType]} {MEAL_LABELS[mealType]}
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        {items.map((item) => {
-                          const imgUrl = item.recipe.imageUrl
-                            ? item.recipe.imageUrl.startsWith('http')
-                              ? item.recipe.imageUrl
-                              : `${API_URL}${item.recipe.imageUrl}`
-                            : null;
-                          return (
-                            <div
-                              key={item.id}
-                              className="bg-primary-50 border border-primary-100 rounded-lg p-1.5 group relative"
-                            >
-                              <p className="text-xs font-medium text-primary-800 line-clamp-2 leading-tight">
-                                {item.recipe.title}
-                              </p>
-                              <button
-                                onClick={() => handleRemoveItem(currentPlan.id, item.id)}
-                                className="absolute top-0.5 right-0.5 hidden group-hover:flex w-4 h-4 items-center justify-center bg-red-500 text-white rounded-full text-[10px]"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          );
-                        })}
-                        <button
-                          onClick={() => openAddItem(day, mealType)}
-                          className="w-full text-xs text-gray-300 hover:text-primary-500 hover:bg-primary-50 rounded-lg py-1 transition-colors text-center border border-dashed border-transparent hover:border-primary-200"
+                      {items.map((item) => (
+                        <Box
+                          key={item.id}
+                          sx={{ bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.100', borderRadius: 1.5, p: 0.75, position: 'relative', '&:hover .remove-btn': { display: 'flex' } }}
                         >
-                          + {MEAL_ICONS[mealType]}
-                        </button>
-                      </div>
-                    </div>
+                          <Typography variant="caption" fontWeight={600} color="primary.dark" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3 }}>
+                            {item.recipe.title}
+                          </Typography>
+                          <IconButton
+                            className="remove-btn"
+                            size="small"
+                            onClick={() => handleRemoveItem(currentPlan.id, item.id)}
+                            sx={{ display: 'none', position: 'absolute', top: -6, right: -6, width: 16, height: 16, bgcolor: 'error.main', color: 'white', '&:hover': { bgcolor: 'error.dark' } }}
+                          >
+                            <CloseIcon sx={{ fontSize: 10 }} />
+                          </IconButton>
+                        </Box>
+                      ))}
+                      <Box
+                        sx={{ cursor: 'pointer', borderRadius: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.disabled', '&:hover': { color: 'primary.main', bgcolor: 'primary.50' } }}
+                        onClick={() => { setAddItemTarget({ date: day, mealType }); setAddItemOpen(true); }}
+                      >
+                        <AddIcon sx={{ fontSize: 14 }} />
+                        <Typography variant="caption" sx={{ fontSize: 11 }}>{MEAL_ICONS[mealType]}</Typography>
+                      </Box>
+                    </Box>
                   );
                 })}
-              </div>
-              <div className="bg-gray-50 px-3 py-1 text-xs text-gray-400 border-t border-gray-100">
-                {MEAL_ICONS[mealType]} {MEAL_LABELS[mealType]}
-              </div>
-            </div>
+              </Box>
+              <Box sx={{ bgcolor: 'grey.50', px: 2, py: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary">{MEAL_ICONS[mealType]} {MEAL_LABELS[mealType]}</Typography>
+              </Box>
+            </Box>
           ))}
-        </div>
+        </Paper>
       )}
 
       {/* Add item modal */}
       <Modal isOpen={addItemOpen} onClose={() => { setAddItemOpen(false); setSelectedRecipe(null); setRecipeSearch(''); }} title="Ajouter une recette" size="md">
-        <div className="space-y-4">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {addItemTarget && (
-            <p className="text-sm text-gray-600">
-              {MEAL_ICONS[addItemTarget.mealType]} {MEAL_LABELS[addItemTarget.mealType]} —{' '}
-              <strong>{format(addItemTarget.date, 'EEEE d MMMM', { locale: fr })}</strong>
-            </p>
+            <Typography variant="body2" color="text.secondary">
+              {MEAL_ICONS[addItemTarget.mealType]} {MEAL_LABELS[addItemTarget.mealType]} — <strong>{format(addItemTarget.date, 'EEEE d MMMM', { locale: fr })}</strong>
+            </Typography>
           )}
 
-          <input
+          <TextField
             value={recipeSearch}
             onChange={(e) => setRecipeSearch(e.target.value)}
             placeholder="Rechercher une recette..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            size="small"
+            fullWidth
+            variant="outlined"
           />
 
-          <div className="space-y-1 max-h-60 overflow-y-auto">
-            {recipesData?.items.map((recipe) => (
-              <button
-                key={recipe.id}
-                type="button"
-                onClick={() => setSelectedRecipe(recipe)}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  selectedRecipe?.id === recipe.id ? 'bg-primary-50 border border-primary-200' : 'hover:bg-gray-50'
-                }`}
-              >
-                <div className="w-10 h-8 rounded bg-gray-100 overflow-hidden flex-shrink-0">
-                  {recipe.imageUrl ? (
-                    <img src={recipe.imageUrl.startsWith('http') ? recipe.imageUrl : `${API_URL}${recipe.imageUrl}`}
-                      className="w-full h-full object-cover" alt="" />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-sm">🍽</div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{recipe.title}</p>
-                  {recipe.prepTime && <p className="text-xs text-gray-400">{recipe.prepTime} min prép.</p>}
-                </div>
-                {selectedRecipe?.id === recipe.id && (
-                  <svg className="h-4 w-4 text-primary-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </div>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 240, overflowY: 'auto' }}>
+            {recipesData?.items.map((recipe) => {
+              const isSelected = selectedRecipe?.id === recipe.id;
+              return (
+                <Box
+                  key={recipe.id}
+                  onClick={() => setSelectedRecipe(recipe)}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1, borderRadius: 2, cursor: 'pointer', border: '1px solid', borderColor: isSelected ? 'primary.main' : 'transparent', bgcolor: isSelected ? 'primary.50' : 'transparent', '&:hover': { bgcolor: isSelected ? 'primary.50' : 'grey.50' } }}
+                >
+                  <Box sx={{ width: 40, height: 32, borderRadius: 1, bgcolor: 'grey.100', overflow: 'hidden', flexShrink: 0 }}>
+                    {recipe.imageUrl ? (
+                      <img src={recipe.imageUrl.startsWith('http') ? recipe.imageUrl : `${API_URL}${recipe.imageUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    ) : (
+                      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🍽</Box>
+                    )}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" fontWeight={600} noWrap>{recipe.title}</Typography>
+                    {recipe.prepTime && <Typography variant="caption" color="text.secondary">{recipe.prepTime} min prép.</Typography>}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setAddItemOpen(false)}>Annuler</Button>
-            <Button onClick={handleAddItem} disabled={!selectedRecipe}>Ajouter</Button>
-          </div>
-        </div>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
+            <Button variant="text" color="inherit" onClick={() => setAddItemOpen(false)}>Annuler</Button>
+            <Button variant="contained" onClick={handleAddItem} disabled={!selectedRecipe}>Ajouter</Button>
+          </Box>
+        </Box>
       </Modal>
 
       {/* Shopping list modal */}
       <Modal isOpen={shoppingListOpen} onClose={() => setShoppingListOpen(false)} title="🛒 Liste de courses" size="md">
-        <div className="space-y-3">
+        <Box>
           {!shoppingList ? (
-            <div className="text-center py-8 text-gray-400">Chargement...</div>
+            <Typography textAlign="center" py={4} color="text.secondary">Chargement...</Typography>
           ) : shoppingList.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">Aucun ingrédient pour cette semaine</div>
+            <Typography textAlign="center" py={4} color="text.secondary">Aucun ingrédient pour cette semaine</Typography>
           ) : (
             <>
-              <p className="text-sm text-gray-500">{shoppingList.length} ingrédient{shoppingList.length > 1 ? 's' : ''} à acheter</p>
-              <div className="divide-y divide-gray-50">
+              <Typography variant="body2" color="text.secondary" mb={2}>{shoppingList.length} ingrédient{shoppingList.length > 1 ? 's' : ''} à acheter</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {shoppingList.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2.5">
-                    <div className="w-4 h-4 border-2 border-gray-300 rounded flex-shrink-0" />
-                    <span className="flex-1 text-sm text-gray-800 capitalize">{item.name}</span>
-                    <span className="text-sm text-gray-500">
-                      {item.totalQuantity !== null && `${Math.round(item.totalQuantity * 100) / 100}`}
-                      {item.unit && ` ${item.unit}`}
-                    </span>
-                  </div>
+                  <Box key={i}>
+                    {i > 0 && <Divider />}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5 }}>
+                      <Box sx={{ width: 16, height: 16, border: '2px solid', borderColor: 'divider', borderRadius: 0.5, flexShrink: 0 }} />
+                      <Typography variant="body2" sx={{ flex: 1, textTransform: 'capitalize' }}>{item.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {item.totalQuantity !== null && `${Math.round(item.totalQuantity * 100) / 100}`}
+                        {item.unit && ` ${item.unit}`}
+                      </Typography>
+                    </Box>
+                  </Box>
                 ))}
-              </div>
+              </Box>
             </>
           )}
-        </div>
+        </Box>
       </Modal>
-    </div>
+    </Box>
   );
 }

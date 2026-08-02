@@ -2,36 +2,35 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import {
+  Box, Typography, Paper, Grid, Button, IconButton, Avatar, Chip,
+  Tab, Tabs, TextField, Divider, FormControl, InputLabel, Select,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SendIcon from '@mui/icons-material/Send';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SearchIcon from '@mui/icons-material/Search';
 import { cookbookApi, recipeApi, RecipeFilters } from '../../api';
 import { useAuthStore } from '../../store/authStore';
 import { useSocket } from '../../hooks/useSocket';
 import { useDebounce } from '../../hooks/useDebounce';
 import { Message, CookbookRole } from '../../types';
-import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import Modal from '../../components/ui/Modal';
+import { Modal } from '../../components/ui/Modal';
 import RecipeCard from '../../components/recipes/RecipeCard';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
-const ROLE_LABELS: Record<CookbookRole, string> = {
-  CREATOR: 'Créateur', EDITOR: 'Éditeur', COMMENTER: 'Commentateur', READER: 'Lecteur',
-};
-const ROLE_COLORS: Record<CookbookRole, string> = {
-  CREATOR: 'bg-primary-100 text-primary-800',
-  EDITOR: 'bg-blue-100 text-blue-800',
-  COMMENTER: 'bg-yellow-100 text-yellow-800',
-  READER: 'bg-gray-100 text-gray-700',
-};
-
-type Tab = 'recipes' | 'members' | 'chat';
+const ROLE_LABELS: Record<CookbookRole, string> = { CREATOR: 'Créateur', EDITOR: 'Éditeur', COMMENTER: 'Commentateur', READER: 'Lecteur' };
 
 export default function CookbookDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>('recipes');
+  const [tabIndex, setTabIndex] = useState(0);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 400);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -49,48 +48,30 @@ export default function CookbookDetail() {
     queryFn: () => cookbookApi.get(id!).then((r) => r.data.data!),
   });
 
-  const filters: RecipeFilters = {
-    cookbookId: id,
-    q: debouncedSearch || undefined,
-    limit: 20,
-  };
+  const filters: RecipeFilters = { cookbookId: id, q: debouncedSearch || undefined, limit: 20 };
 
   const { data: recipesData } = useQuery({
     queryKey: ['recipes', filters],
     queryFn: () => recipeApi.list(filters).then((r) => r.data.data!),
-    enabled: tab === 'recipes',
+    enabled: tabIndex === 0,
   });
 
-  // Load message history when chat tab is active
   useEffect(() => {
-    if (tab !== 'chat' || !id) return;
+    if (tabIndex !== 2 || !id) return;
     cookbookApi.getMessages(id).then((r) => {
-      const msgs = (r.data.data || []).map((m: any) => ({
-        ...m,
-        username: m.user.username,
-        avatar: m.user.avatar,
-        createdAt: m.createdAt,
-      }));
+      const msgs = (r.data.data || []).map((m: any) => ({ ...m, username: m.user.username, avatar: m.user.avatar, createdAt: m.createdAt }));
       setMessages(msgs);
     });
-  }, [tab, id]);
+  }, [tabIndex, id]);
 
-  // Socket.io setup
   useEffect(() => {
     if (!id) return;
     joinCookbook(id);
-    const cleanup = onMessage((msg) => {
-      setMessages((prev) => [...prev, msg]);
-    });
-    return () => {
-      cleanup();
-      leaveCookbook(id);
-    };
+    const cleanup = onMessage((msg) => setMessages((prev) => [...prev, msg]));
+    return () => { cleanup(); leaveCookbook(id); };
   }, [id]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const myRole = cookbook?.myRole;
   const canEdit = myRole === 'CREATOR' || myRole === 'EDITOR';
@@ -108,13 +89,10 @@ export default function CookbookDetail() {
     if (!inviteEmail) return;
     try {
       const res = await cookbookApi.invite(id!, { email: inviteEmail, role: inviteRole });
-      const token = res.data.data!.token;
-      setInviteLink(token);
+      setInviteLink(res.data.data!.token);
       toast.success('Invitation créée !');
       queryClient.invalidateQueries({ queryKey: ['cookbook', id] });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erreur');
-    }
+    } catch (err: any) { toast.error(err.response?.data?.message || 'Erreur'); }
   };
 
   const handleDeleteCookbook = async () => {
@@ -144,240 +122,200 @@ export default function CookbookDetail() {
     } catch { toast.error('Erreur'); }
   };
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>;
-  }
-  if (!cookbook) return <div className="text-center py-16 text-gray-500">Cookbook introuvable</div>;
+  if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><Typography color="text.secondary">Chargement...</Typography></Box>;
+  if (!cookbook) return <Typography textAlign="center" py={8} color="text.secondary">Cookbook introuvable</Typography>;
 
   const coverUrl = cookbook.coverImage
     ? cookbook.coverImage.startsWith('http') ? cookbook.coverImage : `${API_URL}${cookbook.coverImage}`
     : null;
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-card">
-        <div className="h-40 bg-gradient-to-r from-primary-500 to-primary-700 relative overflow-hidden">
-          {coverUrl && <img src={coverUrl} alt={cookbook.name} className="w-full h-full object-cover" />}
-          <div className="absolute inset-0 bg-black/30" />
-          <div className="absolute bottom-4 left-6 right-6 flex items-end justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">{cookbook.name}</h1>
-              {cookbook.description && <p className="text-white/80 text-sm mt-0.5">{cookbook.description}</p>}
-            </div>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${ROLE_COLORS[cookbook.myRole]}`}>
-              {ROLE_LABELS[cookbook.myRole]}
-            </span>
-          </div>
-        </div>
-        <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <span>🍽 {cookbook._count?.recipes ?? 0} recettes</span>
-            <span>👥 {cookbook.members?.length ?? 0} membres</span>
-            <span>par {cookbook.createdBy.username}</span>
-          </div>
-          <div className="flex gap-2">
-            {canEdit && (
-              <Link to={`/recipes/new?cookbookId=${id}`}>
-                <Button size="sm">+ Ajouter une recette</Button>
-              </Link>
-            )}
-            {canManageMembers && (
-              <Button size="sm" variant="outline" onClick={() => setInviteOpen(true)}>
-                📩 Inviter
-              </Button>
-            )}
-            {myRole === 'CREATOR' && (
-              <Button size="sm" variant="danger" onClick={handleDeleteCookbook}>
-                Supprimer
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
+        <Box sx={{ height: 160, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', position: 'relative', overflow: 'hidden' }}>
+          {coverUrl && <img src={coverUrl} alt={cookbook.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+          <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'flex-end' }}>
+            <Box sx={{ p: 3, flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography variant="h5" fontWeight={700} color="white">{cookbook.name}</Typography>
+                {cookbook.description && <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>{cookbook.description}</Typography>}
+              </Box>
+              <Chip label={ROLE_LABELS[cookbook.myRole]} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+            </Box>
+          </Box>
+        </Box>
+        <Box sx={{ px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 3, color: 'text.secondary' }}>
+            <Typography variant="body2">🍽 {cookbook._count?.recipes ?? 0} recettes</Typography>
+            <Typography variant="body2">👥 {cookbook.members?.length ?? 0} membres</Typography>
+            <Typography variant="body2">par {cookbook.createdBy.username}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {canEdit && <Button component={Link} to={`/recipes/new?cookbookId=${id}`} variant="contained" size="small" startIcon={<AddIcon />}>Ajouter une recette</Button>}
+            {canManageMembers && <Button variant="outlined" size="small" startIcon={<PersonAddIcon />} onClick={() => setInviteOpen(true)} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Inviter</Button>}
+            {myRole === 'CREATOR' && <Button variant="contained" color="error" size="small" startIcon={<DeleteIcon />} onClick={handleDeleteCookbook}>Supprimer</Button>}
+          </Box>
+        </Box>
+      </Paper>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-        {([['recipes', '🍽 Recettes'], ['members', '👥 Membres'], ['chat', '💬 Chat']] as [Tab, string][]).map(([t, label]) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)}>
+          <Tab label="🍽 Recettes" />
+          <Tab label="👥 Membres" />
+          <Tab label="💬 Chat" />
+        </Tabs>
+      </Box>
 
       {/* Recipes tab */}
-      {tab === 'recipes' && (
-        <div className="space-y-4">
+      {tabIndex === 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Input
             placeholder="Rechercher dans ce cookbook..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            leftIcon={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            }
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+            leftIcon={<SearchIcon sx={{ fontSize: 18 }} />}
           />
           {recipesData?.items.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <div className="text-4xl mb-3">🍽️</div>
-              <p>Aucune recette dans ce cookbook</p>
-              {canEdit && <Link to={`/recipes/new?cookbookId=${id}`}><Button className="mt-4">Ajouter la première recette</Button></Link>}
-            </div>
+            <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+              <Typography fontSize={48} mb={2}>🍽️</Typography>
+              <Typography variant="body1">Aucune recette dans ce cookbook</Typography>
+              {canEdit && <Button component={Link} to={`/recipes/new?cookbookId=${id}`} variant="contained" sx={{ mt: 2 }}>Ajouter la première recette</Button>}
+            </Box>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {recipesData?.items.map((recipe) => <RecipeCard key={recipe.id} recipe={recipe} />)}
-            </div>
+            <Grid container spacing={2}>
+              {recipesData?.items.map((recipe) => (
+                <Grid item xs={12} sm={6} lg={4} xl={3} key={recipe.id}>
+                  <RecipeCard recipe={recipe} />
+                </Grid>
+              ))}
+            </Grid>
           )}
-        </div>
+        </Box>
       )}
 
       {/* Members tab */}
-      {tab === 'members' && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-card overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Membres ({cookbook.members?.length})</h2>
-            {canManageMembers && (
-              <Button size="sm" variant="outline" onClick={() => setInviteOpen(true)}>+ Inviter</Button>
-            )}
-          </div>
-          <div className="divide-y divide-gray-50">
-            {cookbook.members?.map((member) => (
-              <div key={member.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                  {member.user.avatar ? (
-                    <img src={member.user.avatar} className="w-full h-full rounded-full object-cover" alt="" />
+      {tabIndex === 1 && (
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
+          <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography fontWeight={600}>Membres ({cookbook.members?.length})</Typography>
+            {canManageMembers && <Button variant="outlined" size="small" startIcon={<PersonAddIcon />} onClick={() => setInviteOpen(true)}>Inviter</Button>}
+          </Box>
+          <Box>
+            {cookbook.members?.map((member, i) => (
+              <Box key={member.id}>
+                {i > 0 && <Divider />}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.5 }}>
+                  <Avatar src={member.user.avatar ?? undefined} sx={{ width: 36, height: 36, bgcolor: 'primary.50', color: 'primary.main', fontSize: 14, fontWeight: 700 }}>
+                    {member.user.username.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" fontWeight={600}>{member.user.username}</Typography>
+                    <Typography variant="caption" color="text.secondary">{member.user.email}</Typography>
+                  </Box>
+                  {canManageMembers && member.userId !== user?.id ? (
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <Select native value={member.role} onChange={(e) => handleUpdateRole(member.userId, e.target.value as CookbookRole)}>
+                        {(['EDITOR', 'COMMENTER', 'READER'] as CookbookRole[]).map((r) => (
+                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                        ))}
+                      </Select>
+                    </FormControl>
                   ) : (
-                    <span className="text-primary-700 font-semibold text-sm">{member.user.username.charAt(0).toUpperCase()}</span>
+                    <Chip label={ROLE_LABELS[member.role]} size="small" color="primary" variant="outlined" />
                   )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm">{member.user.username}</p>
-                  <p className="text-xs text-gray-400">{member.user.email}</p>
-                </div>
-                {canManageMembers && member.userId !== user?.id ? (
-                  <select
-                    value={member.role}
-                    onChange={(e) => handleUpdateRole(member.userId, e.target.value as CookbookRole)}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    {(['EDITOR', 'COMMENTER', 'READER'] as CookbookRole[]).map((r) => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[member.role]}`}>
-                    {ROLE_LABELS[member.role]}
-                  </span>
-                )}
-                {canManageMembers && member.userId !== user?.id && (
-                  <button
-                    onClick={() => handleRemoveMember(member.userId, member.user.username)}
-                    className="text-gray-400 hover:text-red-500 transition-colors ml-1"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
+                  {canManageMembers && member.userId !== user?.id && (
+                    <IconButton size="small" onClick={() => handleRemoveMember(member.userId, member.user.username)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+              </Box>
             ))}
-          </div>
-        </div>
+          </Box>
+        </Paper>
       )}
 
       {/* Chat tab */}
-      {tab === 'chat' && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-card flex flex-col" style={{ height: '60vh' }}>
-          <div className="px-4 py-3 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">💬 Messagerie du cookbook</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {tabIndex === 2 && (
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, display: 'flex', flexDirection: 'column', height: '60vh' }}>
+          <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Typography fontWeight={600}>💬 Messagerie du cookbook</Typography>
+          </Box>
+          <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {messages.length === 0 && (
-              <div className="text-center text-gray-400 text-sm py-8">Aucun message. Commencez la conversation !</div>
+              <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>Aucun message. Commencez la conversation !</Typography>
             )}
             {messages.map((msg) => {
               const isMe = msg.userId === user?.id;
               return (
-                <div key={msg.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
-                  <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 self-end">
-                    <span className="text-primary-700 text-xs font-semibold">
-                      {(msg.username || msg.user?.username || '?').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className={`max-w-xs lg:max-w-md ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
-                    {!isMe && <span className="text-xs text-gray-500 px-1">{msg.username || msg.user?.username}</span>}
-                    <div className={`px-3 py-2 rounded-2xl text-sm ${isMe ? 'bg-primary-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
-                      {msg.content}
-                    </div>
-                    <span className="text-xs text-gray-400 px-1">
-                      {new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </div>
+                <Box key={msg.id} sx={{ display: 'flex', gap: 1, flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+                  <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.50', color: 'primary.main', fontSize: 12, fontWeight: 700 }}>
+                    {(msg.username || msg.user?.username || '?').charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 0.25, maxWidth: '70%' }}>
+                    {!isMe && <Typography variant="caption" color="text.secondary">{msg.username || msg.user?.username}</Typography>}
+                    <Box sx={{ px: 1.5, py: 1, borderRadius: 3, bgcolor: isMe ? 'primary.main' : 'grey.100', color: isMe ? 'white' : 'text.primary', borderBottomRightRadius: isMe ? 4 : 12, borderBottomLeftRadius: isMe ? 12 : 4 }}>
+                      <Typography variant="body2">{msg.content}</Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.disabled">{new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Typography>
+                  </Box>
+                </Box>
               );
             })}
             <div ref={messagesEndRef} />
-          </div>
-          <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-100 flex gap-2">
-            <input
+          </Box>
+          <Box component="form" onSubmit={handleSendMessage} sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', gap: 1 }}>
+            <TextField
               value={msgInput}
               onChange={(e) => setMsgInput(e.target.value)}
               placeholder={canChat ? 'Écrire un message...' : 'Les lecteurs ne peuvent pas envoyer de messages'}
               disabled={!canChat}
-              className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-400"
+              size="small"
+              fullWidth
+              variant="outlined"
             />
-            <Button type="submit" disabled={!msgInput.trim() || !canChat} size="sm">
-              Envoyer
-            </Button>
-          </form>
-        </div>
+            <IconButton type="submit" disabled={!msgInput.trim() || !canChat} color="primary">
+              <SendIcon />
+            </IconButton>
+          </Box>
+        </Paper>
       )}
 
       {/* Invite modal */}
       <Modal isOpen={inviteOpen} onClose={() => { setInviteOpen(false); setInviteLink(null); setInviteEmail(''); }} title="Inviter un membre">
-        <div className="space-y-4">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {inviteLink ? (
-            <div className="space-y-3">
-              <p className="text-sm text-green-700 bg-green-50 rounded-lg p-3">
-                ✅ Invitation créée ! Partagez ce token avec {inviteEmail} :
-              </p>
-              <div className="flex gap-2">
-                <input readOnly value={inviteLink} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono bg-gray-50" />
-                <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success('Copié !'); }}>
-                  Copier
-                </Button>
-              </div>
-              <Button className="w-full" onClick={() => { setInviteLink(null); setInviteEmail(''); }}>
-                Nouvelle invitation
-              </Button>
-            </div>
+            <>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
+                <Typography variant="body2" color="success.dark">✅ Invitation créée ! Partagez ce token avec {inviteEmail} :</Typography>
+              </Paper>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField value={inviteLink} size="small" fullWidth InputProps={{ readOnly: true, sx: { fontFamily: 'monospace', fontSize: 13 } }} />
+                <Button variant="outlined" size="small" startIcon={<ContentCopyIcon />} onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success('Copié !'); }}>Copier</Button>
+              </Box>
+              <Button variant="contained" onClick={() => { setInviteLink(null); setInviteEmail(''); }}>Nouvelle invitation</Button>
+            </>
           ) : (
             <>
-              <Input label="Email du membre" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="membre@email.com" />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
-                <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as CookbookRole)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              <Input label="Email du membre" type="email" value={inviteEmail} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteEmail(e.target.value)} placeholder="membre@email.com" />
+              <FormControl fullWidth size="small">
+                <InputLabel>Rôle</InputLabel>
+                <Select native label="Rôle" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as CookbookRole)}>
                   {(['EDITOR', 'COMMENTER', 'READER'] as CookbookRole[]).map((r) => (
                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                   ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button variant="ghost" onClick={() => setInviteOpen(false)}>Annuler</Button>
-                <Button onClick={handleInvite} disabled={!inviteEmail}>Créer l'invitation</Button>
-              </div>
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
+                <Button variant="text" color="inherit" onClick={() => setInviteOpen(false)}>Annuler</Button>
+                <Button variant="contained" onClick={handleInvite} disabled={!inviteEmail}>Créer l'invitation</Button>
+              </Box>
             </>
           )}
-        </div>
+        </Box>
       </Modal>
-    </div>
+    </Box>
   );
 }

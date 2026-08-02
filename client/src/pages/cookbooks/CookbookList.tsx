@@ -3,17 +3,21 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import {
+  Box, Typography, Grid, Paper, Chip, Button, CardActionArea,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import LinkIcon from '@mui/icons-material/Link';
 import { cookbookApi } from '../../api';
-import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
-import Modal from '../../components/ui/Modal';
+import { Modal } from '../../components/ui/Modal';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
-interface CookbookFormData {
-  name: string;
-  description?: string;
-}
+interface CookbookFormData { name: string; description?: string; }
+
+const ROLE_LABELS: Record<string, string> = { CREATOR: 'Créateur', EDITOR: 'Éditeur', COMMENTER: 'Commentateur', READER: 'Lecteur' };
+const ROLE_COLORS: Record<string, 'primary' | 'info' | 'warning' | 'default'> = { CREATOR: 'primary', EDITOR: 'info', COMMENTER: 'warning', READER: 'default' };
 
 export default function CookbookList() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -42,9 +46,7 @@ export default function CookbookList() {
       navigate(`/cookbooks/${res.data.data!.id}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Erreur');
-    } finally {
-      setCreating(false);
-    }
+    } finally { setCreating(false); }
   };
 
   const handleJoin = async () => {
@@ -59,125 +61,107 @@ export default function CookbookList() {
       navigate(`/cookbooks/${res.data.data!.cookbookId}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lien invalide ou expiré');
-    } finally {
-      setJoining(false);
-    }
-  };
-
-  const ROLE_LABELS: Record<string, string> = {
-    CREATOR: 'Créateur',
-    EDITOR: 'Éditeur',
-    COMMENTER: 'Commentateur',
-    READER: 'Lecteur',
-  };
-
-  const ROLE_COLORS: Record<string, string> = {
-    CREATOR: 'bg-primary-100 text-primary-800',
-    EDITOR: 'bg-blue-100 text-blue-800',
-    COMMENTER: 'bg-yellow-100 text-yellow-800',
-    READER: 'bg-gray-100 text-gray-700',
+    } finally { setJoining(false); }
   };
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mes Cookbooks</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Recueils de recettes partagés</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setJoinOpen(true)}>
-            🔗 Rejoindre
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Mes Cookbooks</Typography>
+          <Typography variant="body2" color="text.secondary">Recueils de recettes partagés</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" startIcon={<LinkIcon />} onClick={() => setJoinOpen(true)} color="inherit" sx={{ borderColor: 'divider', color: 'text.primary' }}>
+            Rejoindre
           </Button>
-          <Button onClick={() => setCreateOpen(true)}>
-            + Créer un cookbook
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+            Créer un cookbook
           </Button>
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Grid container spacing={2}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-48 bg-gray-200 rounded-2xl animate-pulse" />
+            <Grid item xs={12} sm={6} lg={4} key={i}>
+              <Paper elevation={0} sx={{ height: 200, borderRadius: 3, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }} />
+            </Grid>
           ))}
-        </div>
+        </Grid>
       ) : cookbooks?.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4">📚</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucun cookbook</h3>
-          <p className="text-gray-500 mb-6">Créez un cookbook partagé ou rejoignez-en un</p>
-          <Button onClick={() => setCreateOpen(true)}>Créer mon premier cookbook</Button>
-        </div>
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography fontSize={56} mb={2}>📚</Typography>
+          <Typography variant="h6" fontWeight={600} mb={1}>Aucun cookbook</Typography>
+          <Typography variant="body2" color="text.secondary" mb={3}>Créez un cookbook partagé ou rejoignez-en un</Typography>
+          <Button variant="contained" onClick={() => setCreateOpen(true)}>Créer mon premier cookbook</Button>
+        </Box>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Grid container spacing={2}>
           {cookbooks?.map((cb) => {
             const coverUrl = cb.coverImage
               ? cb.coverImage.startsWith('http') ? cb.coverImage : `${API_URL}${cb.coverImage}`
               : null;
 
             return (
-              <Link key={cb.id} to={`/cookbooks/${cb.id}`} className="group">
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5">
-                  <div className="h-36 bg-gradient-to-br from-primary-100 to-primary-200 overflow-hidden relative">
-                    {coverUrl ? (
-                      <img src={coverUrl} alt={cb.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-5xl">📚</div>
-                    )}
-                    {/* Role badge */}
-                    <span className={`absolute top-2 right-2 text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[cb.myRole]}`}>
-                      {ROLE_LABELS[cb.myRole]}
-                    </span>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700 transition-colors">{cb.name}</h3>
-                    {cb.description && (
-                      <p className="text-sm text-gray-500 mt-1 line-clamp-2">{cb.description}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
-                      <span>🍽 {cb._count?.recipes ?? 0} recettes</span>
-                      <span>👥 {cb._count?.members ?? 0} membres</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
+              <Grid item xs={12} sm={6} lg={4} key={cb.id}>
+                <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden', transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 3 } }}>
+                  <CardActionArea component={Link} to={`/cookbooks/${cb.id}`}>
+                    <Box sx={{ height: 140, bgcolor: 'primary.50', position: 'relative', overflow: 'hidden' }}>
+                      {coverUrl ? (
+                        <img src={coverUrl} alt={cb.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>📚</Box>
+                      )}
+                      <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+                        <Chip label={ROLE_LABELS[cb.myRole]} size="small" color={ROLE_COLORS[cb.myRole]} />
+                      </Box>
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                      <Typography variant="body1" fontWeight={600}>{cb.name}</Typography>
+                      {cb.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mt: 0.5 }}>
+                          {cb.description}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 2, mt: 1.5, color: 'text.secondary' }}>
+                        <Typography variant="caption">🍽 {cb._count?.recipes ?? 0} recettes</Typography>
+                        <Typography variant="caption">👥 {cb._count?.members ?? 0} membres</Typography>
+                      </Box>
+                    </Box>
+                  </CardActionArea>
+                </Paper>
+              </Grid>
             );
           })}
-        </div>
+        </Grid>
       )}
 
       {/* Create Modal */}
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Créer un cookbook">
-        <form onSubmit={handleSubmit(handleCreate)} className="space-y-4">
-          <Input label="Nom" required placeholder="Mes recettes familiales..."
-            error={errors.name?.message}
-            {...register('name', { required: 'Nom requis' })} />
+        <Box component="form" onSubmit={handleSubmit(handleCreate)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Input label="Nom *" placeholder="Mes recettes familiales..." error={errors.name?.message} {...register('name', { required: 'Nom requis' })} />
           <Textarea label="Description" placeholder="Description optionnelle..." {...register('description')} />
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="ghost" type="button" onClick={() => setCreateOpen(false)}>Annuler</Button>
-            <Button type="submit" loading={creating}>Créer</Button>
-          </div>
-        </form>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, pt: 1 }}>
+            <Button variant="text" color="inherit" onClick={() => setCreateOpen(false)}>Annuler</Button>
+            <Button type="submit" variant="contained" disabled={creating}>{creating ? 'Création...' : 'Créer'}</Button>
+          </Box>
+        </Box>
       </Modal>
 
       {/* Join Modal */}
       <Modal isOpen={joinOpen} onClose={() => setJoinOpen(false)} title="Rejoindre un cookbook">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">Entrez le token d'invitation qui vous a été envoyé.</p>
-          <Input
-            label="Token d'invitation"
-            value={joinToken}
-            onChange={(e) => setJoinToken(e.target.value)}
-            placeholder="Token ou URL d'invitation..."
-          />
-          <div className="flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setJoinOpen(false)}>Annuler</Button>
-            <Button onClick={handleJoin} loading={joining} disabled={!joinToken.trim()}>Rejoindre</Button>
-          </div>
-        </div>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">Entrez le token d'invitation qui vous a été envoyé.</Typography>
+          <Input label="Token d'invitation" value={joinToken} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setJoinToken(e.target.value)} placeholder="Token ou URL d'invitation..." />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
+            <Button variant="text" color="inherit" onClick={() => setJoinOpen(false)}>Annuler</Button>
+            <Button variant="contained" onClick={handleJoin} disabled={joining || !joinToken.trim()}>{joining ? 'Rejoindre...' : 'Rejoindre'}</Button>
+          </Box>
+        </Box>
       </Modal>
-    </div>
+    </Box>
   );
 }

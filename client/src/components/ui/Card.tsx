@@ -1,31 +1,50 @@
-interface CardProps {
+import { Paper, Box, Typography } from '@mui/material';
+import type { PaperProps } from '@mui/material';
+
+interface CardProps extends PaperProps {
   children: React.ReactNode;
-  className?: string;
   hover?: boolean;
-  onClick?: () => void;
   padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
-export function Card({ children, className = '', hover = false, onClick, padding = 'md' }: CardProps) {
-  const paddingClass = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6' }[padding];
-  const hoverClass = hover ? 'cursor-pointer hover:shadow-card-hover transition-shadow duration-200' : '';
+const paddingMap = { none: 0, sm: 2, md: 2.5, lg: 3 };
 
+export function Card({ children, hover = false, padding = 'md', sx, onClick, ...props }: CardProps) {
   return (
-    <div
-      className={`bg-white rounded-xl border border-gray-200 shadow-card ${paddingClass} ${hoverClass} ${className}`}
+    <Paper
+      elevation={0}
       onClick={onClick}
+      sx={{
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 3,
+        p: paddingMap[padding],
+        cursor: hover || onClick ? 'pointer' : 'default',
+        transition: hover ? 'box-shadow 0.2s' : undefined,
+        '&:hover': hover ? { boxShadow: 3 } : undefined,
+        ...sx,
+      }}
+      {...props}
     >
       {children}
-    </div>
+    </Paper>
   );
 }
 
-export function CardHeader({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`flex items-center justify-between mb-4 ${className}`}>{children}</div>;
+export function CardHeader({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }} className={className}>
+      {children}
+    </Box>
+  );
 }
 
-export function CardTitle({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <h3 className={`text-lg font-semibold text-gray-900 ${className}`}>{children}</h3>;
+export function CardTitle({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <Typography variant="h6" fontWeight={600} className={className}>
+      {children}
+    </Typography>
+  );
 }
 
 export default Card;

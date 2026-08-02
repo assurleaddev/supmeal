@@ -1,10 +1,14 @@
 import { useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import {
+  Box, Typography, Grid, Paper, Chip, Button, FormControlLabel, Checkbox,
+  FormControl, InputLabel, Select, MenuItem,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import { recipeApi, cookbookApi, tagApi, RecipeFilters } from '../../api';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Recipe } from '../../types';
-import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import RecipeCard from '../../components/recipes/RecipeCard';
 
@@ -52,185 +56,145 @@ export default function RecipeList() {
   });
 
   const toggleTag = useCallback((tagName: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tagName) ? prev.filter((t) => t !== tagName) : [...prev, tagName],
-    );
+    setSelectedTags((prev) => prev.includes(tagName) ? prev.filter((t) => t !== tagName) : [...prev, tagName]);
     setPage(1);
   }, []);
 
+  const hasFilters = search || cookbookId || selectedTags.length || selectedIngredients || maxPrepTime || maxCookTime || favorites;
+
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {favorites ? '❤️ Mes favoris' : 'Mes recettes'}
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">
-            {data?.total ?? 0} recette{(data?.total ?? 0) > 1 ? 's' : ''}
-          </p>
-        </div>
-        <Link to="/recipes/new">
-          <Button leftIcon={
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-          }>
-            Nouvelle recette
-          </Button>
-        </Link>
-      </div>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>{favorites ? '❤️ Mes favoris' : 'Mes recettes'}</Typography>
+          <Typography variant="body2" color="text.secondary">{data?.total ?? 0} recette{(data?.total ?? 0) > 1 ? 's' : ''}</Typography>
+        </Box>
+        <Button component={Link} to="/recipes/new" variant="contained" startIcon={<AddIcon />}>Nouvelle recette</Button>
+      </Box>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-        {/* Search bar */}
+      <Paper elevation={0} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Input
           placeholder="Rechercher recettes, ingrédients, tags..."
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          leftIcon={
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          }
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
+          leftIcon={<SearchIcon sx={{ fontSize: 18 }} />}
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Cookbook filter */}
-          <select
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            value={cookbookId}
-            onChange={(e) => { setCookbookId(e.target.value); setPage(1); }}
-          >
-            <option value="">Tous les cookbooks</option>
-            <option value="personal">Recettes personnelles</option>
-            {cookbooksData?.map((cb) => (
-              <option key={cb.id} value={cb.id}>{cb.name}</option>
-            ))}
-          </select>
+        <Grid container spacing={1.5}>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Cookbook</InputLabel>
+              <Select native label="Cookbook" value={cookbookId} onChange={(e) => { setCookbookId(e.target.value as string); setPage(1); }}>
+                <option value="">Tous les cookbooks</option>
+                <option value="personal">Recettes personnelles</option>
+                {cookbooksData?.map((cb) => <option key={cb.id} value={cb.id}>{cb.name}</option>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={6} sm={3} md={3}>
+            <Input
+              placeholder="Prép. max (min)"
+              type="number"
+              value={maxPrepTime}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setMaxPrepTime(e.target.value); setPage(1); }}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3} md={3}>
+            <Input
+              placeholder="Cuisson max (min)"
+              type="number"
+              value={maxCookTime}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setMaxCookTime(e.target.value); setPage(1); }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Input
+              placeholder="Ingrédients (séparés par ,)"
+              value={selectedIngredients}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSelectedIngredients(e.target.value); setPage(1); }}
+            />
+          </Grid>
+        </Grid>
 
-          {/* Prep time */}
-          <Input
-            placeholder="Prép. max (min)"
-            type="number"
-            value={maxPrepTime}
-            onChange={(e) => { setMaxPrepTime(e.target.value); setPage(1); }}
-          />
-
-          {/* Cook time */}
-          <Input
-            placeholder="Cuisson max (min)"
-            type="number"
-            value={maxCookTime}
-            onChange={(e) => { setMaxCookTime(e.target.value); setPage(1); }}
-          />
-
-          {/* Ingredients */}
-          <Input
-            placeholder="Ingrédients (séparés par ,)"
-            value={selectedIngredients}
-            onChange={(e) => { setSelectedIngredients(e.target.value); setPage(1); }}
-          />
-        </div>
-
-        {/* Tags */}
         {tagsData && tagsData.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
             {tagsData.slice(0, 20).map((tag) => (
-              <button
+              <Chip
                 key={tag.id}
-                type="button"
+                label={tag.name}
+                size="small"
                 onClick={() => toggleTag(tag.name)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  selectedTags.includes(tag.name)
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {tag.name}
-              </button>
+                color={selectedTags.includes(tag.name) ? 'primary' : 'default'}
+                variant={selectedTags.includes(tag.name) ? 'filled' : 'outlined'}
+                sx={{ cursor: 'pointer' }}
+              />
             ))}
-          </div>
+          </Box>
         )}
 
-        {/* Favorites toggle */}
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={favorites}
-              onChange={(e) => { setFavorites(e.target.checked); setPage(1); }}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <span className="text-sm text-gray-700">Favoris uniquement</span>
-          </label>
-
-          {(search || cookbookId || selectedTags.length || selectedIngredients || maxPrepTime || maxCookTime || favorites) && (
-            <button
-              type="button"
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-              onClick={() => {
-                setSearch(''); setCookbookId(''); setSelectedTags([]);
-                setSelectedIngredients(''); setMaxPrepTime(''); setMaxCookTime('');
-                setFavorites(false); setPage(1);
-              }}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={favorites}
+                onChange={(e) => { setFavorites(e.target.checked); setPage(1); }}
+                color="primary"
+              />
+            }
+            label={<Typography variant="body2">Favoris uniquement</Typography>}
+          />
+          {hasFilters && (
+            <Typography
+              variant="body2"
+              color="primary"
+              sx={{ cursor: 'pointer', fontWeight: 600 }}
+              onClick={() => { setSearch(''); setCookbookId(''); setSelectedTags([]); setSelectedIngredients(''); setMaxPrepTime(''); setMaxCookTime(''); setFavorites(false); setPage(1); }}
             >
               Réinitialiser les filtres
-            </button>
+            </Typography>
           )}
-        </div>
-      </div>
+        </Box>
+      </Paper>
 
       {/* Recipe grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <Grid container spacing={2}>
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 h-64 animate-pulse" />
+            <Grid item xs={12} sm={6} lg={4} xl={3} key={i}>
+              <Paper elevation={0} sx={{ height: 260, borderRadius: 3, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }} />
+            </Grid>
           ))}
-        </div>
+        </Grid>
       ) : data?.items.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4">🍽️</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune recette trouvée</h3>
-          <p className="text-gray-500 mb-6">
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography fontSize={56} mb={2}>🍽️</Typography>
+          <Typography variant="h6" fontWeight={600} mb={1}>Aucune recette trouvée</Typography>
+          <Typography variant="body2" color="text.secondary" mb={3}>
             {search ? `Aucun résultat pour "${search}"` : 'Commencez par créer votre première recette'}
-          </p>
-          <Link to="/recipes/new">
-            <Button>Créer une recette</Button>
-          </Link>
-        </div>
+          </Typography>
+          <Button component={Link} to="/recipes/new" variant="contained">Créer une recette</Button>
+        </Box>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <Grid container spacing={2}>
           {data?.items.map((recipe) => (
-            <RecipeCard key={recipe.id} recipe={recipe} />
+            <Grid item xs={12} sm={6} lg={4} xl={3} key={recipe.id}>
+              <RecipeCard recipe={recipe} />
+            </Grid>
           ))}
-        </div>
+        </Grid>
       )}
 
       {/* Pagination */}
       {data && data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => p - 1)}
-            disabled={page === 1}
-          >
-            ← Précédent
-          </Button>
-          <span className="text-sm text-gray-600">
-            Page {page} sur {data.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => p + 1)}
-            disabled={page === data.totalPages}
-          >
-            Suivant →
-          </Button>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+          <Button variant="outlined" size="small" onClick={() => setPage((p) => p - 1)} disabled={page === 1}>← Précédent</Button>
+          <Typography variant="body2" color="text.secondary">Page {page} sur {data.totalPages}</Typography>
+          <Button variant="outlined" size="small" onClick={() => setPage((p) => p + 1)} disabled={page === data.totalPages}>Suivant →</Button>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
