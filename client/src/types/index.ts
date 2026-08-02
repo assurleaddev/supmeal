@@ -99,6 +99,7 @@ export interface Recipe {
   tags: { tag: Tag }[];
   isFavorite?: boolean;
   _count?: { favorites: number; comments: number };
+  comments?: Comment[];
 }
 
 export interface Comment {
