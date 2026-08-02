@@ -33,4 +33,4 @@ RUN mkdir -p /app/uploads/recipes
 EXPOSE 3000
 
 # Run migrations then start the server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/server.js"]

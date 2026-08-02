@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -25,11 +25,21 @@ export default function Settings() {
     queryFn: () => userApi.getMe().then((r) => r.data.data!),
   });
 
-  const prefs = profile?.preferences;
-  const [diet, setDiet] = useState<string[]>(prefs?.diet || []);
-  const [allergies, setAllergies] = useState<string[]>(prefs?.allergies || []);
-  const [cuisines, setCuisines] = useState<string[]>(prefs?.cuisineTypes || []);
-  const [defaultPortions, setDefaultPortions] = useState(prefs?.defaultPortions || 4);
+  const [diet, setDiet] = useState<string[]>([]);
+  const [allergies, setAllergies] = useState<string[]>([]);
+  const [cuisines, setCuisines] = useState<string[]>([]);
+  const [defaultPortions, setDefaultPortions] = useState(4);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (profile?.preferences && !prefsLoaded) {
+      setDiet(profile.preferences.diet || []);
+      setAllergies(profile.preferences.allergies || []);
+      setCuisines(profile.preferences.cuisineTypes || []);
+      setDefaultPortions(profile.preferences.defaultPortions || 4);
+      setPrefsLoaded(true);
+    }
+  }, [profile]);
 
   // Profile form
   const { register: regProfile, handleSubmit: handleProfile, formState: { errors: profileErrors } } = useForm({

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -31,8 +31,11 @@ export default function RecipeDetail() {
   const { data: recipeData, isLoading } = useQuery({
     queryKey: ['recipe', id],
     queryFn: () => recipeApi.get(id!).then((r) => r.data.data!),
-    onSuccess: (data) => { if (isFav === null) setIsFav(data.isFavorite ?? false); },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (recipeData && isFav === null) setIsFav(recipeData.isFavorite ?? false);
+  }, [recipeData]);
 
   const recipe = recipeData;
   const isOwner = recipe?.createdById === user?.id;
