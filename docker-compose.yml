@@ -57,7 +57,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_API_URL: ${VITE_API_URL:-}
     container_name: supmeal_client
     restart: unless-stopped
     depends_on:
