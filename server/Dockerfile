@@ -19,6 +19,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+RUN apk add --no-cache openssl
+
 # Install only production dependencies
 COPY package*.json ./
 COPY prisma ./prisma/
