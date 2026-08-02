@@ -33,7 +33,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change_this_in_production_very_long_secret_key}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_this_refresh_secret_key}
       PORT: 3000
-      CLIENT_URL: ${CLIENT_URL:-http://localhost:80}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
       NODE_ENV: ${NODE_ENV:-production}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -63,7 +63,7 @@ services:
     depends_on:
       - server
     ports:
-      - "80:80"
+      - "8080:80"
 
 volumes:
   postgres_data:
