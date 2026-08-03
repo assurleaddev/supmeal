@@ -7,10 +7,31 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
+import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import { recipeApi, cookbookApi, tagApi, RecipeFilters } from '../../api';
 import { useDebounce } from '../../hooks/useDebounce';
 import { Input } from '../../components/ui/Input';
 import RecipeCard from '../../components/recipes/RecipeCard';
+
+function RecipeCardSkeleton() {
+  return (
+    <Paper
+      elevation={0}
+      sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}
+    >
+      <Box className="skeleton" sx={{ height: 180, borderRadius: 0 }} />
+      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box className="skeleton" sx={{ height: 16, width: '80%' }} />
+        <Box className="skeleton" sx={{ height: 14, width: '55%' }} />
+        <Box sx={{ display: 'flex', gap: 0.75, mt: 0.5 }}>
+          <Box className="skeleton" sx={{ height: 20, width: 52, borderRadius: '10px' }} />
+          <Box className="skeleton" sx={{ height: 20, width: 44, borderRadius: '10px' }} />
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
 
 export default function RecipeList() {
   const [searchParams] = useSearchParams();
@@ -60,6 +81,11 @@ export default function RecipeList() {
     setPage(1);
   }, []);
 
+  const resetFilters = useCallback(() => {
+    setSearch(''); setCookbookId(''); setSelectedTags([]); setSelectedIngredients('');
+    setMaxPrepTime(''); setMaxCookTime(''); setFavorites(false); setPage(1);
+  }, []);
+
   const hasFilters = search || cookbookId || selectedTags.length || selectedIngredients || maxPrepTime || maxCookTime || favorites;
 
   return (
@@ -67,14 +93,20 @@ export default function RecipeList() {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>{favorites ? '❤️ Mes favoris' : 'Mes recettes'}</Typography>
-          <Typography variant="body2" color="text.secondary">{data?.total ?? 0} recette{(data?.total ?? 0) > 1 ? 's' : ''}</Typography>
+          <Typography variant="h5" fontWeight={700}>
+            {favorites ? 'Mes favoris' : 'Mes recettes'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {isLoading ? '...' : `${data?.total ?? 0} recette${(data?.total ?? 0) > 1 ? 's' : ''}`}
+          </Typography>
         </Box>
-        <Button component={Link} to="/recipes/new" variant="contained" startIcon={<AddIcon />}>Nouvelle recette</Button>
+        <Button component={Link} to="/recipes/new" variant="contained" startIcon={<AddIcon />}>
+          Nouvelle recette
+        </Button>
       </Box>
 
       {/* Filters */}
-      <Paper elevation={0} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Input
           placeholder="Rechercher recettes, ingrédients, tags..."
           value={search}
@@ -128,7 +160,7 @@ export default function RecipeList() {
                 onClick={() => toggleTag(tag.name)}
                 color={selectedTags.includes(tag.name) ? 'primary' : 'default'}
                 variant={selectedTags.includes(tag.name) ? 'filled' : 'outlined'}
-                sx={{ cursor: 'pointer' }}
+                sx={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
               />
             ))}
           </Box>
@@ -147,14 +179,15 @@ export default function RecipeList() {
             label={<Typography variant="body2">Favoris uniquement</Typography>}
           />
           {hasFilters && (
-            <Typography
-              variant="body2"
-              color="primary"
-              sx={{ cursor: 'pointer', fontWeight: 600 }}
-              onClick={() => { setSearch(''); setCookbookId(''); setSelectedTags([]); setSelectedIngredients(''); setMaxPrepTime(''); setMaxCookTime(''); setFavorites(false); setPage(1); }}
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<FilterListOffIcon />}
+              onClick={resetFilters}
+              sx={{ color: 'text.secondary', fontWeight: 500 }}
             >
-              Réinitialiser les filtres
-            </Typography>
+              Réinitialiser
+            </Button>
           )}
         </Box>
       </Paper>
@@ -164,18 +197,24 @@ export default function RecipeList() {
         <Grid container spacing={2}>
           {Array.from({ length: 8 }).map((_, i) => (
             <Grid item xs={12} sm={6} lg={4} xl={3} key={i}>
-              <Paper elevation={0} sx={{ height: 260, borderRadius: 3, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }} />
+              <RecipeCardSkeleton />
             </Grid>
           ))}
         </Grid>
       ) : data?.items.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography fontSize={56} mb={2}>🍽️</Typography>
+          <Box sx={{ width: 72, height: 72, borderRadius: '50%', bgcolor: 'grey.100', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
+            <RestaurantMenuIcon sx={{ fontSize: 36, color: 'text.secondary' }} />
+          </Box>
           <Typography variant="h6" fontWeight={600} mb={1}>Aucune recette trouvée</Typography>
           <Typography variant="body2" color="text.secondary" mb={3}>
             {search ? `Aucun résultat pour "${search}"` : 'Commencez par créer votre première recette'}
           </Typography>
-          <Button component={Link} to="/recipes/new" variant="contained">Créer une recette</Button>
+          {!search && (
+            <Button component={Link} to="/recipes/new" variant="contained" startIcon={<AddIcon />}>
+              Créer une recette
+            </Button>
+          )}
         </Box>
       ) : (
         <Grid container spacing={2}>
@@ -191,7 +230,7 @@ export default function RecipeList() {
       {data && data.totalPages > 1 && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
           <Button variant="outlined" size="small" onClick={() => setPage((p) => p - 1)} disabled={page === 1}>← Précédent</Button>
-          <Typography variant="body2" color="text.secondary">Page {page} sur {data.totalPages}</Typography>
+          <Typography variant="body2" color="text.secondary">Page {page} / {data.totalPages}</Typography>
           <Button variant="outlined" size="small" onClick={() => setPage((p) => p + 1)} disabled={page === data.totalPages}>Suivant →</Button>
         </Box>
       )}
