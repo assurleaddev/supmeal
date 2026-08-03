@@ -30,7 +30,7 @@ export default function Register() {
       const { user, accessToken, refreshToken } = res.data.data!;
       setAuth(user, accessToken, refreshToken);
       toast.success('Compte créé avec succès !');
-      navigate('/');
+      navigate('/home');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Inscription échouée');
     } finally {

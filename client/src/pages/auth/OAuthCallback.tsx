@@ -29,7 +29,7 @@ export default function OAuthCallback() {
         const user = res.data.data!;
         setAuth(user, accessToken, refreshToken);
         toast.success(`Bienvenue, ${user.username} !`);
-        navigate('/');
+        navigate('/home');
       })
       .catch(() => {
         localStorage.removeItem('accessToken');

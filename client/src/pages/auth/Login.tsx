@@ -29,7 +29,7 @@ export default function Login() {
       const { user, accessToken, refreshToken } = res.data.data!;
       setAuth(user, accessToken, refreshToken);
       toast.success(`Bienvenue, ${user.username} !`);
-      navigate('/');
+      navigate('/home');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Connexion échouée');
     } finally {

@@ -8,6 +8,7 @@ import { useAuthStore } from './store/authStore';
 import Layout from './components/layout/Layout';
 import theme from './theme';
 
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const OAuthCallback = lazy(() => import('./pages/auth/OAuthCallback'));
@@ -34,7 +35,12 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <Navigate to="/" replace /> : <>{children}</>;
+  return isAuthenticated ? <Navigate to="/home" replace /> : <>{children}</>;
+}
+
+function RootRoute() {
+  const { isAuthenticated } = useAuthStore();
+  return isAuthenticated ? <Navigate to="/home" replace /> : <LandingPage />;
 }
 
 function PageLoader() {
@@ -53,12 +59,17 @@ export default function App() {
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              {/* Public landing page */}
+              <Route index element={<RootRoute />} />
+
+              {/* Auth pages */}
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
               <Route path="/oauth/callback" element={<OAuthCallback />} />
 
+              {/* Protected app */}
               <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-                <Route index element={<Home />} />
+                <Route path="/home" element={<Home />} />
                 <Route path="/recipes" element={<RecipeList />} />
                 <Route path="/recipes/new" element={<CreateEditRecipe />} />
                 <Route path="/recipes/:id" element={<RecipeDetail />} />
