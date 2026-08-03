@@ -24,10 +24,21 @@ export default function Navbar() {
   };
 
   return (
-    <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', zIndex: 40 }}>
+    <AppBar
+      position="sticky"
+      color="inherit"
+      elevation={0}
+      sx={{
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        zIndex: 40,
+        bgcolor: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
       <Toolbar sx={{ maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, sm: 3, lg: 4 }, minHeight: 64 }}>
         {/* Logo */}
-        <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none', mr: 'auto' }}>
+        <Box component={Link} to="/home" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none', mr: 'auto' }}>
           <Box sx={{ width: 32, height: 32, bgcolor: 'primary.main', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography color="white" fontWeight={700} fontSize={18}>S</Typography>
           </Box>

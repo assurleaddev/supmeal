@@ -7,7 +7,7 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 const navItems = [
-  { label: 'Accueil',      to: '/',                    icon: <HomeOutlinedIcon />,         exact: true  },
+  { label: 'Accueil',      to: '/home',                icon: <HomeOutlinedIcon />,         exact: true  },
   { label: 'Mes recettes', to: '/recipes',              icon: <MenuBookOutlinedIcon />,     exact: false },
   { label: 'Cookbooks',    to: '/cookbooks',            icon: <LibraryBooksOutlinedIcon />, exact: false },
   { label: 'Planning',     to: '/meal-planner',         icon: <CalendarMonthOutlinedIcon />,exact: false },
