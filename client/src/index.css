@@ -1,3 +1,7 @@
+/* Tailwind v4 — import theme tokens + utilities only, skip preflight to avoid MUI conflicts */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
 *, *::before, *::after {
   box-sizing: border-box;
 }

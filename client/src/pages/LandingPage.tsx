@@ -1,13 +1,14 @@
-import { useRef } from 'react';
+import { useRef } from 'react'; // used by Reveal, ParallaxBlob, SectionHeading
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Link } from 'react-router-dom';
+import HeroSection from '@/components/ui/glassmorphism-trust-hero';
 import {
   Box, Button, Typography, Container, Grid, Paper, Stack, Chip, Avatar, Divider,
 } from '@mui/material';
 import {
-  motion, useScroll, useTransform, useInView, useMotionValue, useSpring,
+  motion, useScroll, useTransform, useInView,
   AnimatePresence,
 } from 'framer-motion';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
@@ -340,28 +341,6 @@ function ParallaxBlob({ top, left, right, bottom, color, size }: {
 }
 
 export default function LandingPage() {
-  const heroRef = useRef(null);
-  const { scrollYProgress: heroScroll } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
-  const heroY = useTransform(heroScroll, [0, 1], [0, 120]);
-  const heroOpacity = useTransform(heroScroll, [0, 0.7], [1, 0]);
-
-  /* Magnetic cursor effect on CTA */
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const springX = useSpring(mouseX, { stiffness: 300, damping: 30 });
-  const springY = useSpring(mouseY, { stiffness: 300, damping: 30 });
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    mouseX.set((e.clientX - cx) * 0.25);
-    mouseY.set((e.clientY - cy) * 0.25);
-  };
-  const handleMouseLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
-  };
 
   return (
     <Box sx={{ bgcolor: '#ffffff', minHeight: '100vh', overflowX: 'hidden' }}>
@@ -424,169 +403,7 @@ export default function LandingPage() {
       </MotionBox>
 
       {/* ── HERO ── */}
-      <Box
-        ref={heroRef}
-        sx={{
-          position: 'relative', pt: { xs: 8, md: 14 }, pb: { xs: 8, md: 12 }, overflow: 'hidden',
-          background: 'linear-gradient(160deg, #f0fdf4 0%, #ffffff 45%, #f0f9ff 100%)',
-        }}
-      >
-        {/* Animated background blobs */}
-        <MotionBox
-          animate={{ scale: [1, 1.15, 1], rotate: [0, 8, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-          sx={{ position: 'absolute', top: -160, right: -160, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(22,163,74,0.09) 0%, transparent 65%)', pointerEvents: 'none' }}
-        />
-        <MotionBox
-          animate={{ scale: [1, 1.12, 1], rotate: [0, -6, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          sx={{ position: 'absolute', bottom: -120, left: -120, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(14,165,233,0.08) 0%, transparent 65%)', pointerEvents: 'none' }}
-        />
-        <MotionBox
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-          sx={{ position: 'absolute', top: '40%', left: '40%', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(234,88,12,0.05) 0%, transparent 65%)', pointerEvents: 'none' }}
-        />
-
-        {/* Floating particles */}
-        {PARTICLES.map((p, i) => (
-          <MotionBox
-            key={i}
-            animate={{ y: [0, -18, 0], opacity: [0.5, 0.9, 0.5] }}
-            transition={{ duration: p.duration, repeat: Infinity, ease: 'easeInOut', delay: p.delay }}
-            sx={{ position: 'absolute', left: p.x, top: p.y, width: p.size, height: p.size, borderRadius: '50%', bgcolor: p.color, pointerEvents: 'none' }}
-          />
-        ))}
-
-        <MotionBox style={{ y: heroY, opacity: heroOpacity }}>
-          <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-            <Grid container spacing={{ xs: 6, md: 10 }} alignItems="center">
-              {/* Left: text */}
-              <Grid item xs={12} md={6}>
-                {/* Badge */}
-                <MotionBox
-                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 99, px: 1.5, py: 0.75, mb: 3.5 }}
-                >
-                  <MotionBox
-                    animate={{ scale: [1, 1.6, 1], opacity: [1, 0, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#16a34a' }}
-                  />
-                  <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: '#15803d' }}>
-                    100% gratuit · Aucune carte bancaire
-                  </Typography>
-                </MotionBox>
-
-                {/* Headline — word by word */}
-                <Box sx={{ mb: 3 }}>
-                  {['Vos recettes,', 'enfin organisées.'].map((line, lineIdx) => (
-                    <Box key={lineIdx} sx={{ overflow: 'hidden' }}>
-                      <MotionBox
-                        initial={{ y: 80 }}
-                        animate={{ y: 0 }}
-                        transition={{ duration: 0.7, delay: 0.1 + lineIdx * 0.15, ease: [0.22, 1, 0.36, 1] }}
-                      >
-                        {lineIdx === 0 ? (
-                          <Typography component="span" sx={{ display: 'block', fontSize: { xs: '2.5rem', sm: '3.2rem', md: '3.8rem' }, fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.035em', color: '#0f172a' }}>
-                            {line}
-                          </Typography>
-                        ) : (
-                          <Typography component="span" sx={{
-                            display: 'block',
-                            fontSize: { xs: '2.5rem', sm: '3.2rem', md: '3.8rem' }, fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.035em',
-                            background: 'linear-gradient(135deg, #16a34a 0%, #0ea5e9 100%)',
-                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                          }}>
-                            {line}
-                          </Typography>
-                        )}
-                      </MotionBox>
-                    </Box>
-                  ))}
-                </Box>
-
-                {/* Subtitle */}
-                <MotionBox
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Typography variant="body1" sx={{ fontSize: { xs: '1.05rem', md: '1.15rem' }, color: '#475569', lineHeight: 1.75, mb: 4.5, maxWidth: 460 }}>
-                    Centralisez toutes vos recettes, planifiez vos repas de la semaine et partagez vos cookbooks en famille. Simple, rapide et gratuit.
-                  </Typography>
-                </MotionBox>
-
-                {/* CTAs */}
-                <MotionBox
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                    <MotionBox
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={handleMouseLeave}
-                      style={{ x: springX, y: springY }}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      <Button
-                        component={Link} to="/register" variant="contained" size="large"
-                        endIcon={<ArrowForwardIcon />}
-                        sx={{ bgcolor: '#16a34a', color: 'white', fontWeight: 700, px: 4, py: 1.6, fontSize: '1rem', borderRadius: '12px', boxShadow: '0 4px 20px rgba(22,163,74,0.30)', '&:hover': { bgcolor: '#15803d', boxShadow: '0 8px 28px rgba(22,163,74,0.40)' }, whiteSpace: 'nowrap' }}
-                      >
-                        Commencer gratuitement
-                      </Button>
-                    </MotionBox>
-                    <MotionBox whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                      <Button
-                        component={Link} to="/login" variant="outlined" size="large"
-                        sx={{ color: '#374151', borderColor: '#d1d5db', fontWeight: 600, px: 3.5, py: 1.6, fontSize: '1rem', borderRadius: '12px', '&:hover': { borderColor: '#9ca3af', bgcolor: '#f9fafb' } }}
-                      >
-                        Se connecter
-                      </Button>
-                    </MotionBox>
-                  </Stack>
-                </MotionBox>
-
-                {/* Trust row */}
-                <MotionBox
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6, delay: 0.7 }}
-                  sx={{ display: 'flex', flexWrap: 'wrap', gap: 2.5, mt: 4 }}
-                >
-                  {[
-                    { icon: CheckCircleOutlineIcon, text: 'Recettes illimitées' },
-                    { icon: LockOutlinedIcon, text: 'Données privées' },
-                    { icon: BoltIcon, text: 'Accès immédiat' },
-                  ].map(({ icon: Icon, text }) => (
-                    <Box key={text} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      <Icon sx={{ fontSize: 16, color: '#16a34a' }} />
-                      <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500, fontSize: '0.82rem' }}>{text}</Typography>
-                    </Box>
-                  ))}
-                </MotionBox>
-              </Grid>
-
-              {/* Right: mockup */}
-              <Grid item xs={12} md={6}>
-                <MotionBox
-                  initial={{ opacity: 0, x: 60, scale: 0.95 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                  sx={{ px: { xs: 2, md: 0 } }}
-                >
-                  <AppMockup />
-                </MotionBox>
-              </Grid>
-            </Grid>
-          </Container>
-        </MotionBox>
-      </Box>
+      <HeroSection />
 
       {/* ── STATS BAR ── */}
       <Box sx={{ bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
