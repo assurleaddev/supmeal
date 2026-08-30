@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { recipeApi, cookbookApi, mealPlanApi } from '../api';
+import { recipeApi, cookbookApi, mealPlanApi, userApi } from '../api';
 import { useAuthStore } from '../store/authStore';
 import { format, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -41,6 +41,12 @@ export default function Home() {
     queryFn: () => mealPlanApi.list().then((r) => r.data.data!),
   });
 
+  // Compteurs agrégés en base : les dériver de listes paginées donnait des totaux faux.
+  const { data: userStats } = useQuery({
+    queryKey: ['user-stats'],
+    queryFn: () => userApi.stats().then((r) => r.data.data!),
+  });
+
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const weekPlan = mealPlans?.find((p) => p.weekStart.startsWith(format(weekStart, 'yyyy-MM-dd')));
@@ -50,10 +56,10 @@ export default function Home() {
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
 
   const stats = [
-    { label: 'Recettes', value: recentRecipes?.total ?? '—', to: '/recipes' },
-    { label: 'Cookbooks', value: cookbooks?.length ?? '—', to: '/cookbooks' },
-    { label: 'Favoris', value: '—', to: '/recipes?favorites=true' },
-    { label: 'Planifiés', value: weekPlan?.items.length ?? 0, to: '/meal-planner' },
+    { label: 'Recettes', value: userStats?.recipes ?? '—', to: '/recipes' },
+    { label: 'Cookbooks', value: userStats?.cookbooks ?? '—', to: '/cookbooks' },
+    { label: 'Favoris', value: userStats?.favorites ?? '—', to: '/recipes?favorites=true' },
+    { label: 'Planifiés', value: userStats?.plannedThisWeek ?? '—', to: '/meal-planner' },
   ];
 
   return (

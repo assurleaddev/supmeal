@@ -18,6 +18,7 @@ import {
   Tag,
   User,
   UserPreferences,
+  UserStats,
 } from '../types';
 
 // ─────────────────────────────────────────
@@ -41,6 +42,8 @@ export const authApi = {
 
 export const userApi = {
   getMe: () => api.get<ApiResponse<User>>('/users/me'),
+
+  stats: () => api.get<ApiResponse<UserStats>>('/users/me/stats'),
 
   updateProfile: (data: { username?: string; avatar?: string | null }) =>
     api.patch<ApiResponse<User>>('/users/me', data),

@@ -197,6 +197,13 @@ export interface RecipeFormData {
   tags: string[];
 }
 
+export interface UserStats {
+  recipes: number;
+  cookbooks: number;
+  favorites: number;
+  plannedThisWeek: number;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;

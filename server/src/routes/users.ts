@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
 import { AuthenticatedRequest } from '../types';
+import { resolveWeek } from '../utils/week';
 
 const router = Router();
 
@@ -27,6 +28,41 @@ router.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Res
     });
     if (!user) throw new AppError('User not found', 404);
     res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────
+// GET /api/users/me/stats — compteurs du tableau de bord
+// ─────────────────────────────────────────
+// Ces compteurs étaient auparavant dérivés côté client à partir de trois listes paginées, ce qui
+// donnait des totaux faux dès que la pagination tronquait les résultats. Ils sont comptés en base.
+router.get('/me/stats', requireAuth as any, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user.id;
+    const { weekStart, weekEnd } = resolveWeek();
+
+    const [recipes, cookbooks, favorites, plannedThisWeek] = await Promise.all([
+      prisma.recipe.count({
+        where: {
+          OR: [
+            { createdById: userId },
+            { cookbookId: { not: null }, cookbook: { members: { some: { userId } } } },
+          ],
+        },
+      }),
+      prisma.cookbookMember.count({ where: { userId } }),
+      prisma.favorite.count({ where: { userId } }),
+      prisma.mealPlanItem.count({
+        where: {
+          mealPlan: { userId },
+          date: { gte: weekStart, lte: weekEnd },
+        },
+      }),
+    ]);
+
+    res.json({ success: true, data: { recipes, cookbooks, favorites, plannedThisWeek } });
   } catch (err) {
     next(err);
   }
