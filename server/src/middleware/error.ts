@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 
 export class AppError extends Error {
   constructor(
@@ -22,6 +23,17 @@ export function errorHandler(
       success: false,
       message: err.message,
       ...(err.errors && { errors: err.errors }),
+    });
+    return;
+  }
+
+  // Une erreur de validation est une faute du client, pas du serveur. Elle est traitée ici plutôt
+  // que dans chaque route : sans ce cas, un corps de requête malformé remontait en 500.
+  if (err instanceof ZodError) {
+    res.status(400).json({
+      success: false,
+      message: 'Validation error',
+      errors: err.flatten().fieldErrors,
     });
     return;
   }
