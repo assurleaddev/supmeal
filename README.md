@@ -1,45 +1,65 @@
 # SUPMEAL
 
-Application web de gestion de recettes et de planification de repas.
+Application web de gestion de recettes et de planification de repas : recettes personnelles,
+cookbooks partagés avec rôles, recherche multicritère, planning hebdomadaire et liste de courses,
+messagerie temps réel, import/export.
 
 ## Démarrage rapide (Docker)
 
 ```bash
 # 1. Copier et configurer les variables d'environnement
 cp .env.example .env
-# Éditer .env avec vos valeurs (mots de passe, JWT secrets)
+# Éditer .env : renseigner au minimum POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET
+#   openssl rand -base64 64   # pour chaque secret JWT
 
 # 2. Lancer l'application
-docker compose up --build
+docker compose up --build -d
 
-# 3. Accéder à l'application
-# Client : http://localhost:80
-# API    : http://localhost:3000
+# 3. (optionnel) Charger le jeu de données de démonstration
+docker compose exec server npm run db:seed
 ```
+
+| | URL |
+|---|---|
+| Application | http://localhost:8080 |
+| API | http://localhost:3000/api |
+| Health check | http://localhost:3000/api/health |
 
 ## Architecture
 
-| Service    | Technologie                     | Port |
-|------------|---------------------------------|------|
-| `postgres` | PostgreSQL 16                   | 5432 |
-| `server`   | Node.js + Express + TypeScript  | 3000 |
-| `client`   | React + Vite + TailwindCSS      | 80   |
+Trois services distincts, orchestrés par `docker-compose.yml` :
+
+| Service | Technologie | Port hôte → conteneur |
+|---|---|---|
+| `postgres` | PostgreSQL 16 | `5432` → `5432` |
+| `server` | Node.js 20 + Express + TypeScript + Prisma | `3000` → `3000` |
+| `client` | React 18 + Vite + Material UI, servi par nginx | `8080` → `80` |
+
+Le client est une interface pure : toute la logique métier réside dans l'API REST. nginx relaie
+`/api/`, `/uploads/` et `/socket.io/` vers le service `server`, ce qui évite toute configuration CORS
+côté navigateur.
 
 ## Développement local
 
 ```bash
+# PostgreSQL seul
+docker compose up postgres -d
+
 # Backend
 cd server && npm install
-cp ../.env.example .env   # configurer DATABASE_URL
-npm run db:push           # créer le schéma
-npm run db:seed           # insérer les tags par défaut
-npm run dev               # démarre sur :3000
+# Créer server/.env avec DATABASE_URL, JWT_SECRET et JWT_REFRESH_SECRET
+npm run db:push           # applique le schéma Prisma
+npm run db:seed           # jeu de données de démonstration
+npm run dev               # API sur :3000
 
 # Frontend (autre terminal)
 cd client && npm install
-npm run dev               # démarre sur :5173
+npm run dev               # :5173, proxy Vite vers :3000
 ```
 
 ## Documentation
 
-Voir le dossier `docs/` pour la documentation technique complète et le manuel utilisateur.
+- [Documentation technique](docs/documentation-technique.md) — configuration, déploiement,
+  choix technologiques, diagrammes UML, schéma de base de données, sécurité.
+- [Manuel utilisateur](docs/manuel-utilisateur.md) — prise en main et présentation des
+  fonctionnalités.
