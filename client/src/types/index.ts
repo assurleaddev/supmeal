@@ -197,6 +197,15 @@ export interface RecipeFormData {
   tags: string[];
 }
 
+export interface MealPlanWeek {
+  weekStart: string;
+  weekEnd: string;
+  days: string[];
+  today: string;
+  defaultName: string;
+  plan: MealPlan | null;
+}
+
 export interface UserStats {
   recipes: number;
   cookbooks: number;

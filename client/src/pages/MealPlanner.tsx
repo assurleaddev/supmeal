@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import {
@@ -22,26 +22,37 @@ const MEAL_ICONS: Record<MealType, string> = { BREAKFAST: '☀️', LUNCH: '🌞
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 export default function MealPlanner() {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [weekOffset, setWeekOffset] = useState(0);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [addItemOpen, setAddItemOpen] = useState(false);
-  const [addItemTarget, setAddItemTarget] = useState<{ date: Date; mealType: MealType } | null>(null);
+  const [addItemTarget, setAddItemTarget] = useState<{ date: string; mealType: MealType } | null>(null);
   const [shoppingListOpen, setShoppingListOpen] = useState(false);
   const [recipeSearch, setRecipeSearch] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   const queryClient = useQueryClient();
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-  const weekStartStr = format(currentWeekStart, 'yyyy-MM-dd');
+
+  // Les bornes de la semaine, ses 7 jours et la date du jour viennent du serveur : le client ne
+  // fait aucune arithmétique de calendrier, il ne transmet qu'un décalage en semaines (§2.3.1).
+  const { data: week } = useQuery({
+    queryKey: ['meal-plan-week', weekOffset],
+    queryFn: () => mealPlanApi.week(weekOffset).then((r) => r.data.data!),
+  });
+
+  const weekDays = week?.days ?? [];
+  const isToday = (day: string) => day === week?.today;
+
+  const refreshPlanning = () => {
+    queryClient.invalidateQueries({ queryKey: ['meal-plans'] });
+    queryClient.invalidateQueries({ queryKey: ['meal-plan-week'] });
+  };
 
   const { data: plans } = useQuery({
     queryKey: ['meal-plans'],
     queryFn: () => mealPlanApi.list().then((r) => r.data.data!),
   });
 
-  const currentPlan = selectedPlanId
-    ? plans?.find((p) => p.id === selectedPlanId)
-    : plans?.find((p) => p.weekStart.startsWith(weekStartStr));
+  const currentPlan = selectedPlanId ? plans?.find((p) => p.id === selectedPlanId) : week?.plan ?? undefined;
 
   const { data: shoppingList } = useQuery({
     queryKey: ['shopping-list', currentPlan?.id],
@@ -57,9 +68,10 @@ export default function MealPlanner() {
 
   const handleCreatePlan = async () => {
     try {
-      const res = await mealPlanApi.create({ name: `Semaine du ${format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}`, weekStart: weekStartStr });
+      if (!week) return;
+      const res = await mealPlanApi.create({ name: week.defaultName, weekStart: week.weekStart });
       setSelectedPlanId(res.data.data!.id);
-      queryClient.invalidateQueries({ queryKey: ['meal-plans'] });
+      refreshPlanning();
       toast.success('Planning créé !');
     } catch { toast.error('Erreur'); }
   };
@@ -67,8 +79,8 @@ export default function MealPlanner() {
   const handleAddItem = async () => {
     if (!addItemTarget || !selectedRecipe || !currentPlan) return;
     try {
-      await mealPlanApi.addItem(currentPlan.id, { recipeId: selectedRecipe.id, date: format(addItemTarget.date, 'yyyy-MM-dd'), mealType: addItemTarget.mealType });
-      queryClient.invalidateQueries({ queryKey: ['meal-plans'] });
+      await mealPlanApi.addItem(currentPlan.id, { recipeId: selectedRecipe.id, date: addItemTarget.date, mealType: addItemTarget.mealType });
+      refreshPlanning();
       toast.success('Ajouté au planning !');
       setAddItemOpen(false);
       setSelectedRecipe(null);
@@ -79,13 +91,13 @@ export default function MealPlanner() {
   const handleRemoveItem = async (planId: string, itemId: string) => {
     try {
       await mealPlanApi.removeItem(planId, itemId);
-      queryClient.invalidateQueries({ queryKey: ['meal-plans'] });
+      refreshPlanning();
     } catch { toast.error('Erreur'); }
   };
 
-  const getItemsFor = (date: Date, mealType: MealType): MealPlanItem[] => {
+  const getItemsFor = (day: string, mealType: MealType): MealPlanItem[] => {
     if (!currentPlan) return [];
-    return currentPlan.items.filter((item) => isSameDay(parseISO(item.date), date) && item.mealType === mealType);
+    return currentPlan.items.filter((item) => item.date.slice(0, 10) === day && item.mealType === mealType);
   };
 
   return (
@@ -94,12 +106,12 @@ export default function MealPlanner() {
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Planning de repas</Typography>
-          <Typography variant="body2" color="text.secondary">Semaine du {format(currentWeekStart, 'd MMMM yyyy', { locale: fr })}</Typography>
+          <Typography variant="body2" color="text.secondary">{week?.defaultName ?? '…'}</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Button variant="outlined" size="small" startIcon={<ChevronLeftIcon />} onClick={() => setCurrentWeekStart((d) => addDays(d, -7))} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Préc.</Button>
-          <Button variant="outlined" size="small" startIcon={<TodayIcon />} onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Aujourd'hui</Button>
-          <Button variant="outlined" size="small" endIcon={<ChevronRightIcon />} onClick={() => setCurrentWeekStart((d) => addDays(d, 7))} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Suiv.</Button>
+          <Button variant="outlined" size="small" startIcon={<ChevronLeftIcon />} onClick={() => { setWeekOffset((o) => o - 1); setSelectedPlanId(null); }} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Préc.</Button>
+          <Button variant="outlined" size="small" startIcon={<TodayIcon />} onClick={() => { setWeekOffset(0); setSelectedPlanId(null); }} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Aujourd'hui</Button>
+          <Button variant="outlined" size="small" endIcon={<ChevronRightIcon />} onClick={() => { setWeekOffset((o) => o + 1); setSelectedPlanId(null); }} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Suiv.</Button>
           {currentPlan && <Button variant="contained" size="small" startIcon={<ShoppingCartIcon />} onClick={() => setShoppingListOpen(true)}>Liste de courses</Button>}
         </Box>
       </Box>
@@ -136,12 +148,12 @@ export default function MealPlanner() {
           {/* Day headers */}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: 'divider' }}>
             {weekDays.map((day) => (
-              <Box key={day.toISOString()} sx={{ textAlign: 'center', py: 1.5, px: 1, borderRight: '1px solid', borderColor: 'divider', '&:last-child': { borderRight: 'none' }, bgcolor: isSameDay(day, new Date()) ? 'primary.50' : 'transparent' }}>
+              <Box key={day} sx={{ textAlign: 'center', py: 1.5, px: 1, borderRight: '1px solid', borderColor: 'divider', '&:last-child': { borderRight: 'none' }, bgcolor: isToday(day) ? 'primary.50' : 'transparent' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  {format(day, 'EEE', { locale: fr })}
+                  {format(parseISO(day), 'EEE', { locale: fr })}
                 </Typography>
-                <Typography variant="body1" fontWeight={700} color={isSameDay(day, new Date()) ? 'primary.main' : 'text.primary'}>
-                  {format(day, 'd')}
+                <Typography variant="body1" fontWeight={700} color={isToday(day) ? 'primary.main' : 'text.primary'}>
+                  {format(parseISO(day), 'd')}
                 </Typography>
               </Box>
             ))}
@@ -155,8 +167,8 @@ export default function MealPlanner() {
                   const items = getItemsFor(day, mealType);
                   return (
                     <Box
-                      key={day.toISOString()}
-                      sx={{ minHeight: 90, p: 1, borderRight: '1px solid', borderColor: 'divider', '&:last-child': { borderRight: 'none' }, bgcolor: isSameDay(day, new Date()) ? 'rgba(22, 163, 74, 0.03)' : 'transparent', display: 'flex', flexDirection: 'column', gap: 0.5 }}
+                      key={day}
+                      sx={{ minHeight: 90, p: 1, borderRight: '1px solid', borderColor: 'divider', '&:last-child': { borderRight: 'none' }, bgcolor: isToday(day) ? 'rgba(22, 163, 74, 0.03)' : 'transparent', display: 'flex', flexDirection: 'column', gap: 0.5 }}
                     >
                       {items.map((item) => (
                         <Box

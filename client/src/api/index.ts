@@ -9,6 +9,7 @@ import {
   Ingredient,
   MealPlan,
   MealPlanItem,
+  MealPlanWeek,
   MealType,
   Message,
   PaginatedResponse,
@@ -167,6 +168,9 @@ export const tagApi = {
 // ─────────────────────────────────────────
 
 export const mealPlanApi = {
+  week: (offset: number) =>
+    api.get<ApiResponse<MealPlanWeek>>('/meal-plans/week', { params: { offset } }),
+
   list: () => api.get<ApiResponse<MealPlan[]>>('/meal-plans'),
 
   create: (data: { name?: string; weekStart: string; cookbookId?: string | null }) =>

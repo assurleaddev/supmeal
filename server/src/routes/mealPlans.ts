@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
 import { AuthenticatedRequest } from '../types';
+import { resolveWeek, toDateString } from '../utils/week';
 
 const router = Router();
 
@@ -19,6 +20,56 @@ const mealPlanItemSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   mealType: z.enum(['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK']),
   portions: z.number().int().min(1).optional(),
+});
+
+// GET /api/meal-plans/week?offset=0
+// Les bornes de la semaine sont résolues ici : le client demande « la semaine courante », « la
+// précédente » ou « la suivante » par simple décalage et reçoit les dates déjà calculées, sans
+// jamais faire d'arithmétique de calendrier (§2.3.1).
+// Déclarée avant '/:id', sinon Express ferait correspondre « week » à un identifiant de planning.
+router.get('/week', requireAuth as any, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const offset = Number(req.query.offset ?? 0);
+    if (!Number.isInteger(offset) || Math.abs(offset) > 520) {
+      throw new AppError('Invalid week offset', 400);
+    }
+
+    const { weekStart, weekStartString, weekEndString, days } = resolveWeek(offset);
+
+    const plan = await prisma.mealPlan.findFirst({
+      where: { userId: req.user.id, weekStart },
+      include: {
+        items: {
+          include: {
+            recipe: { select: { id: true, title: true, imageUrl: true, prepTime: true, cookTime: true } },
+          },
+          orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
+        },
+        cookbook: { select: { id: true, name: true } },
+      },
+    });
+
+    const formattedStart = weekStart.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+
+    res.json({
+      success: true,
+      data: {
+        weekStart: weekStartString,
+        weekEnd: weekEndString,
+        days,
+        today: toDateString(new Date()),
+        defaultName: `Semaine du ${formattedStart}`,
+        plan,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // GET /api/meal-plans

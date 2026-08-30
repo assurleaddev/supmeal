@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { recipeApi, cookbookApi, mealPlanApi, userApi } from '../api';
 import { useAuthStore } from '../store/authStore';
-import { format, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Box, Typography, Grid, Paper, Chip, Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -36,9 +36,10 @@ export default function Home() {
     queryFn: () => cookbookApi.list().then((r) => r.data.data!),
   });
 
-  const { data: mealPlans } = useQuery({
-    queryKey: ['meal-plans'],
-    queryFn: () => mealPlanApi.list().then((r) => r.data.data!),
+  // La semaine courante et la date du jour sont résolues par le serveur (§2.3.1).
+  const { data: week } = useQuery({
+    queryKey: ['meal-plan-week', 0],
+    queryFn: () => mealPlanApi.week(0).then((r) => r.data.data!),
   });
 
   // Compteurs agrégés en base : les dériver de listes paginées donnait des totaux faux.
@@ -48,9 +49,7 @@ export default function Home() {
   });
 
   const today = new Date();
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const weekPlan = mealPlans?.find((p) => p.weekStart.startsWith(format(weekStart, 'yyyy-MM-dd')));
-  const todaysMeals = weekPlan?.items.filter((item) => isSameDay(parseISO(item.date), today)) || [];
+  const todaysMeals = week?.plan?.items.filter((item) => item.date.slice(0, 10) === week.today) ?? [];
 
   const hour = today.getHours();
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
