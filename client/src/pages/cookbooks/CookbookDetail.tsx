@@ -73,10 +73,12 @@ export default function CookbookDetail() {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  const myRole = cookbook?.myRole;
-  const canEdit = myRole === 'CREATOR' || myRole === 'EDITOR';
-  const canManageMembers = myRole === 'CREATOR';
-  const canChat = myRole !== undefined && myRole !== 'READER';
+  // Les droits proviennent du serveur : la hiérarchie des rôles est une règle métier qui ne doit
+  // pas être réimplémentée ici (§2.3.1).
+  const permissions = cookbook?.permissions;
+  const canEdit = permissions?.canEditRecipes ?? false;
+  const canManageMembers = permissions?.canManageMembers ?? false;
+  const canChat = permissions?.canChat ?? false;
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +156,7 @@ export default function CookbookDetail() {
           <Box sx={{ display: 'flex', gap: 1 }}>
             {canEdit && <Button component={Link} to={`/recipes/new?cookbookId=${id}`} variant="contained" size="small" startIcon={<AddIcon />}>Ajouter une recette</Button>}
             {canManageMembers && <Button variant="outlined" size="small" startIcon={<PersonAddIcon />} onClick={() => setInviteOpen(true)} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Inviter</Button>}
-            {myRole === 'CREATOR' && <Button variant="contained" color="error" size="small" startIcon={<DeleteIcon />} onClick={handleDeleteCookbook}>Supprimer</Button>}
+            {permissions?.canDeleteCookbook && <Button variant="contained" color="error" size="small" startIcon={<DeleteIcon />} onClick={handleDeleteCookbook}>Supprimer</Button>}
           </Box>
         </Box>
       </Paper>

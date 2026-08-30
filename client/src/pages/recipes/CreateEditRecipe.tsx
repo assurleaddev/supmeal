@@ -141,7 +141,7 @@ export default function CreateEditRecipe() {
             <InputLabel>Assigner à un cookbook</InputLabel>
             <Select native label="Assigner à un cookbook" value={cookbookId} onChange={(e) => setCookbookId(e.target.value as string)}>
               <option value="">Recette personnelle</option>
-              {cookbooks?.filter((cb) => ['CREATOR', 'EDITOR'].includes(cb.myRole)).map((cb) => (
+              {cookbooks?.filter((cb) => cb.permissions.canEditRecipes).map((cb) => (
                 <option key={cb.id} value={cb.id}>{cb.name}</option>
               ))}
             </Select>

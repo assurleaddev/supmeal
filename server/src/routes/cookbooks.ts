@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { CookbookRole } from '@prisma/client';
 import { requireAuth } from '../middleware/auth';
-import { requireCookbookRole } from '../middleware/permissions';
+import { requireCookbookRole, getCookbookPermissions } from '../middleware/permissions';
 import { uploadRecipeImage } from '../middleware/upload';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
@@ -31,6 +31,7 @@ router.get('/', requireAuth as any, async (req: AuthenticatedRequest, res: Respo
     const cookbooks = memberships.map((m) => ({
       ...m.cookbook,
       myRole: m.role,
+      permissions: getCookbookPermissions(m.role),
     }));
 
     res.json({ success: true, data: cookbooks });
@@ -65,7 +66,14 @@ router.post('/', requireAuth as any, async (req: AuthenticatedRequest, res: Resp
       },
     });
 
-    res.status(201).json({ success: true, data: { ...cookbook, myRole: CookbookRole.CREATOR } });
+    res.status(201).json({
+      success: true,
+      data: {
+        ...cookbook,
+        myRole: CookbookRole.CREATOR,
+        permissions: getCookbookPermissions(CookbookRole.CREATOR),
+      },
+    });
   } catch (err) {
     if (err instanceof z.ZodError) {
       next(new AppError('Validation error', 400));
@@ -97,7 +105,11 @@ router.get(
 
       if (!cookbook) throw new AppError('Cookbook not found', 404);
 
-      res.json({ success: true, data: { ...cookbook, myRole: (req as any).cookbookRole } });
+      const myRole = (req as any).cookbookRole as CookbookRole;
+      res.json({
+        success: true,
+        data: { ...cookbook, myRole, permissions: getCookbookPermissions(myRole) },
+      });
     } catch (err) {
       next(err);
     }

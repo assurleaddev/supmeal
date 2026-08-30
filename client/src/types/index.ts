@@ -22,6 +22,14 @@ export interface UserPreferences {
 }
 
 export type CookbookRole = 'CREATOR' | 'EDITOR' | 'COMMENTER' | 'READER';
+
+export interface CookbookPermissions {
+  canComment: boolean;
+  canChat: boolean;
+  canEditRecipes: boolean;
+  canManageMembers: boolean;
+  canDeleteCookbook: boolean;
+}
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
 export type TagType = 'CATEGORY' | 'DIET' | 'DIFFICULTY' | 'CUISINE' | 'CUSTOM';
 
@@ -35,6 +43,8 @@ export interface Cookbook {
   updatedAt: string;
   createdBy: { id: string; username: string; avatar?: string | null };
   myRole: CookbookRole;
+  /** Droits calculés par le serveur à partir du rôle — jamais redérivés côté client. */
+  permissions: CookbookPermissions;
   members?: CookbookMember[];
   _count?: { recipes: number; members: number };
 }
