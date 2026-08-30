@@ -1,8 +1,9 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthenticatedRequest, JwtPayload } from '../types';
+import { env } from '../config/env';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_in_prod';
+const { JWT_SECRET, JWT_REFRESH_SECRET } = env;
 
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
@@ -52,9 +53,6 @@ export function optionalAuth(req: AuthenticatedRequest, res: Response, next: Nex
 }
 
 export function generateTokens(user: { id: string; email: string; username: string }) {
-  const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_in_prod';
-  const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_in_prod';
-
   const accessToken = jwt.sign(
     { sub: user.id, email: user.email, username: user.username } as JwtPayload,
     JWT_SECRET,

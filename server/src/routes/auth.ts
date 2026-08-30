@@ -7,6 +7,7 @@ import prisma from '../config/database';
 import { generateTokens } from '../middleware/auth';
 import { AppError } from '../middleware/error';
 import { RefreshTokenPayload } from '../types';
+import { env } from '../config/env';
 
 const router = Router();
 
@@ -98,10 +99,7 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
     const { refreshToken } = req.body;
     if (!refreshToken) throw new AppError('Refresh token required', 400);
 
-    const JWT_REFRESH_SECRET =
-      process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_in_prod';
-
-    const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as RefreshTokenPayload;
+    const payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as RefreshTokenPayload;
 
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
@@ -153,7 +151,7 @@ router.get(
 function oauthCallback(req: Request, res: Response) {
   const user = req.user as any;
   const tokens = generateTokens({ id: user.id, email: user.email, username: user.username });
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:80';
+  const clientUrl = env.CLIENT_URL;
   res.redirect(
     `${clientUrl}/oauth/callback?accessToken=${tokens.accessToken}&refreshToken=${tokens.refreshToken}`,
   );

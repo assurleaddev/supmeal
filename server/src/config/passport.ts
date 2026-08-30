@@ -3,8 +3,9 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { Strategy as MicrosoftStrategy } from 'passport-microsoft';
 import prisma from './database';
+import { env } from './env';
 
-const CALLBACK_BASE = process.env.OAUTH_CALLBACK_BASE || 'http://localhost:3000';
+const CALLBACK_BASE = env.OAUTH_CALLBACK_BASE;
 
 // ─────────────────────────────────────────
 // Google OAuth2

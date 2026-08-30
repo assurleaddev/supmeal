@@ -3,9 +3,9 @@ import { Server as SocketServer } from 'socket.io';
 import { createApp } from './app';
 import { setupSocket } from './socket/socketHandler';
 import prisma from './config/database';
+import { env } from './config/env';
 
-const PORT = Number(process.env.PORT) || 3000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:80';
+const { PORT, CLIENT_URL } = env;
 
 async function main() {
   // Test database connection

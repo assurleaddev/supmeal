@@ -16,6 +16,7 @@ import tagRoutes from './routes/tags';
 import mealPlanRoutes from './routes/mealPlans';
 import exportRoutes from './routes/export';
 import importRoutes from './routes/import';
+import { env } from './config/env';
 
 export function createApp() {
   const app = express();
@@ -29,7 +30,7 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: process.env.CLIENT_URL || 'http://localhost:80',
+      origin: env.CLIENT_URL,
       credentials: true,
     }),
   );

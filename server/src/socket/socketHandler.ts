@@ -2,6 +2,7 @@ import { Server as SocketServer } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { JwtPayload } from '../types';
+import { env } from '../config/env';
 
 export function setupSocket(io: SocketServer) {
   // Auth middleware for Socket.io
@@ -10,8 +11,7 @@ export function setupSocket(io: SocketServer) {
     if (!token) return next(new Error('Authentication required'));
 
     try {
-      const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_in_prod';
-      const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+      const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
       (socket as any).user = { id: payload.sub, email: payload.email, username: payload.username };
       next();
     } catch {
