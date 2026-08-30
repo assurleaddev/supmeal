@@ -7,32 +7,37 @@ import { uploadRecipeImage } from '../middleware/upload';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
 import { AuthenticatedRequest } from '../types';
+import {
+  optionalPositiveInt,
+  optionalPositiveNumber,
+  optionalString,
+  optionalUrl,
+} from '../utils/validation';
 
 const router = Router();
 
 const ingredientSchema = z.object({
   name: z.string().min(1).max(100),
-  quantity: z.number().positive().optional().nullable(),
-  unit: z.string().max(50).optional().nullable(),
-  notes: z.string().max(200).optional().nullable(),
+  quantity: optionalPositiveNumber,
+  unit: optionalString(50),
+  notes: optionalString(200),
   orderIndex: z.number().int().min(0).default(0),
 });
 
 const stepSchema = z.object({
   description: z.string().min(1),
-  duration: z.number().int().positive().optional().nullable(),
+  duration: optionalPositiveInt,
   orderIndex: z.number().int().min(0),
 });
 
 const recipeSchema = z.object({
   title: z.string().min(1).max(200),
-  description: z.string().max(2000).optional().nullable(),
-  prepTime: z.number().int().positive().optional().nullable(),
-  cookTime: z.number().int().positive().optional().nullable(),
+  description: optionalString(2000),
+  prepTime: optionalPositiveInt,
+  cookTime: optionalPositiveInt,
   portions: z.number().int().min(1).max(1000).default(4),
-  sourceUrl: z.string().url().optional().nullable(),
-  isPersonal: z.boolean().default(true),
-  cookbookId: z.string().optional().nullable(),
+  sourceUrl: optionalUrl,
+  cookbookId: optionalString(100),
   ingredients: z.array(ingredientSchema).min(1),
   steps: z.array(stepSchema).min(1),
   tags: z.array(z.string()).optional().default([]),
@@ -74,53 +79,70 @@ router.get('/', requireAuth as any, async (req: AuthenticatedRequest, res: Respo
     const limitNum = Math.min(50, Math.max(1, Number(limit)));
     const skip = (pageNum - 1) * limitNum;
 
-    // Build the WHERE clause
-    const where: any = {
-      OR: [
-        { createdById: req.user.id },
-        {
-          cookbookId: { not: null },
-          cookbook: {
-            members: { some: { userId: req.user.id } },
+    // Les critères sont accumulés dans un AND plutôt qu'assignés sur un objet partagé : le filtre
+    // d'accès ci-dessous ne doit JAMAIS pouvoir être écrasé par un filtre ultérieur, sans quoi la
+    // requête exposerait les recettes des autres utilisateurs.
+    const filters: any[] = [
+      {
+        OR: [
+          { createdById: req.user.id },
+          {
+            cookbookId: { not: null },
+            cookbook: {
+              members: { some: { userId: req.user.id } },
+            },
           },
-        },
-      ],
-    };
+        ],
+      },
+    ];
 
-    if (cookbookId) where.cookbookId = cookbookId as string;
+    if (cookbookId) filters.push({ cookbookId: cookbookId as string });
 
     if (q) {
       const searchTerm = q as string;
-      where.OR = [
-        { title: { contains: searchTerm, mode: 'insensitive' } },
-        { description: { contains: searchTerm, mode: 'insensitive' } },
-        { ingredients: { some: { ingredient: { name: { contains: searchTerm, mode: 'insensitive' } } } } },
-        { tags: { some: { tag: { name: { contains: searchTerm, mode: 'insensitive' } } } } },
-      ];
+      // Recherche sur titre, description, étapes (le « contenu » au sens du §2.2.2),
+      // ingrédients et tags.
+      filters.push({
+        OR: [
+          { title: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+          { steps: { some: { description: { contains: searchTerm, mode: 'insensitive' } } } },
+          { ingredients: { some: { ingredient: { name: { contains: searchTerm, mode: 'insensitive' } } } } },
+          { tags: { some: { tag: { name: { contains: searchTerm, mode: 'insensitive' } } } } },
+        ],
+      });
     }
 
     if (tags) {
-      const tagList = (tags as string).split(',').filter(Boolean);
+      const tagList = (tags as string).split(',').map((t) => t.trim()).filter(Boolean);
       if (tagList.length > 0) {
-        where.tags = { some: { tag: { name: { in: tagList, mode: 'insensitive' } } } };
+        filters.push({ tags: { some: { tag: { name: { in: tagList } } } } });
       }
     }
 
     if (ingredientFilter) {
-      const ingList = (ingredientFilter as string).split(',').filter(Boolean);
+      const ingList = (ingredientFilter as string).split(',').map((i) => i.trim()).filter(Boolean);
       if (ingList.length > 0) {
-        where.ingredients = {
-          some: { ingredient: { name: { in: ingList, mode: 'insensitive' } } },
-        };
+        // `mode: insensitive` est sans effet sur un filtre `in` : on développe donc la liste en
+        // un OR de `contains`, ce qui rend aussi le filtre tolérant aux saisies partielles.
+        filters.push({
+          OR: ingList.map((name) => ({
+            ingredients: {
+              some: { ingredient: { name: { contains: name, mode: 'insensitive' as const } } },
+            },
+          })),
+        });
       }
     }
 
-    if (maxPrepTime) where.prepTime = { lte: Number(maxPrepTime) };
-    if (maxCookTime) where.cookTime = { lte: Number(maxCookTime) };
+    if (maxPrepTime) filters.push({ prepTime: { lte: Number(maxPrepTime) } });
+    if (maxCookTime) filters.push({ cookTime: { lte: Number(maxCookTime) } });
 
     if (favoritesOnly === 'true') {
-      where.favorites = { some: { userId: req.user.id } };
+      filters.push({ favorites: { some: { userId: req.user.id } } });
     }
+
+    const where = { AND: filters };
 
     const [recipes, total] = await Promise.all([
       prisma.recipe.findMany({
@@ -207,7 +229,9 @@ router.post('/', requireAuth as any, async (req: AuthenticatedRequest, res: Resp
         cookTime: body.cookTime,
         portions: body.portions,
         sourceUrl: body.sourceUrl,
-        isPersonal: body.cookbookId ? false : body.isPersonal,
+        // Règle métier : une recette est personnelle si et seulement si elle n'est rattachée à
+        // aucun cookbook. Dérivée ici et jamais reçue du client, pour rester la seule source de vérité.
+        isPersonal: !body.cookbookId,
         createdById: req.user.id,
         cookbookId: body.cookbookId,
         ingredients: {
