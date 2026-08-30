@@ -181,7 +181,6 @@ export interface RecipeFormData {
   cookTime?: number;
   portions: number;
   sourceUrl?: string;
-  isPersonal: boolean;
   cookbookId?: string;
   ingredients: { name: string; quantity?: number; unit?: string; notes?: string; orderIndex: number }[];
   steps: { description: string; duration?: number; orderIndex: number }[];

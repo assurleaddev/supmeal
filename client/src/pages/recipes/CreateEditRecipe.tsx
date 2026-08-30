@@ -33,7 +33,6 @@ export default function CreateEditRecipe() {
     defaultValues: {
       title: '',
       portions: 4,
-      isPersonal: true,
       ingredients: [{ name: '', quantity: undefined, unit: '', notes: '', orderIndex: 0 }],
       steps: [{ description: '', duration: undefined, orderIndex: 0 }],
     },
@@ -63,7 +62,6 @@ export default function CreateEditRecipe() {
         cookTime: r.cookTime ?? undefined,
         portions: r.portions,
         sourceUrl: r.sourceUrl ?? '',
-        isPersonal: r.isPersonal,
         cookbookId: r.cookbookId ?? undefined,
         ingredients: r.ingredients.map((ri) => ({ name: ri.ingredient.name, quantity: ri.quantity ?? undefined, unit: ri.unit ?? '', notes: ri.notes ?? '', orderIndex: ri.orderIndex })),
         steps: r.steps.map((s) => ({ description: s.description, duration: s.duration ?? undefined, orderIndex: s.orderIndex })),
@@ -83,9 +81,14 @@ export default function CreateEditRecipe() {
     reader.readAsDataURL(file);
   };
 
+  // Les tags sont envoyés tels que saisis : leur canonicalisation (minuscules, trim, déduplication
+  // en base) est une règle métier appliquée par le serveur. On ne filtre ici que la saisie vide et
+  // la répétition immédiate, qui relèvent de l'affichage de la liste de puces.
   const addTag = (tagName: string) => {
-    const normalized = tagName.toLowerCase().trim();
-    if (normalized && !tags.includes(normalized)) setTags((prev) => [...prev, normalized]);
+    const value = tagName.trim();
+    if (value && !tags.some((t) => t.localeCompare(value, undefined, { sensitivity: 'accent' }) === 0)) {
+      setTags((prev) => [...prev, value]);
+    }
     setTagInput('');
   };
 
@@ -96,7 +99,6 @@ export default function CreateEditRecipe() {
         ...data,
         tags,
         cookbookId: cookbookId || undefined,
-        isPersonal: !cookbookId,
         ingredients: data.ingredients.map((ing, i) => ({ ...ing, orderIndex: i })),
         steps: data.steps.map((step, i) => ({ ...step, orderIndex: i })),
       };
