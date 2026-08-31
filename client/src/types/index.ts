@@ -100,6 +100,8 @@ export interface Recipe {
   isPersonal: boolean;
   /** Droits calculés par le serveur ; absent des listes, présent sur le détail. */
   permissions?: RecipePermissions;
+  /** Allergènes déclarés par l'utilisateur retrouvés dans les ingrédients (détail uniquement). */
+  allergyWarnings?: string[];
   createdById: string;
   cookbookId?: string | null;
   createdAt: string;

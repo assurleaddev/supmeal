@@ -39,7 +39,8 @@ export const recipeSchema = z.object({
   description: optionalString(2000),
   prepTime: optionalPositiveInt,
   cookTime: optionalPositiveInt,
-  portions: z.number().int().min(1).max(1000).default(4),
+  // Laissé optionnel : à défaut, le nombre de portions préféré de l'utilisateur s'applique.
+  portions: z.number().int().min(1).max(1000).optional(),
   sourceUrl: optionalUrl,
   cookbookId: optionalString(100),
   ingredients: z.array(ingredientSchema).min(1),
@@ -166,6 +167,33 @@ async function assertCanAddToCookbook(cookbookId: string, userId: string): Promi
  * personnelle n'appartient qu'à son auteur, une recette de cookbook n'est visible que par les
  * membres de ce cookbook — l'auteur compris, qui la perd donc en quittant le groupe.
  */
+/**
+ * Préférences culinaires de l'utilisateur, telles qu'elles influencent les recettes.
+ *
+ * Elles étaient enregistrées et modifiables mais totalement inertes : aucune n'avait d'effet.
+ */
+async function getPreferences(userId: string) {
+  return prisma.userPreferences.findUnique({
+    where: { userId },
+    select: { allergies: true, defaultPortions: true },
+  });
+}
+
+/**
+ * Allergènes déclarés par l'utilisateur retrouvés parmi les ingrédients d'une recette.
+ *
+ * La comparaison se fait sur les formes canoniques et par inclusion, afin que « arachide » alerte
+ * sur « beurre d'arachide ». Signalé, jamais bloquant : c'est un avertissement, pas une interdiction.
+ */
+function matchAllergens(allergies: string[], ingredientNames: string[]): string[] {
+  const found = allergies.filter((allergen) => {
+    const needle = canonicalName(allergen);
+    return needle.length > 0 && ingredientNames.some((name) => name.includes(needle));
+  });
+
+  return [...new Set(found)];
+}
+
 export function visibleRecipeFilter(userId: string): Prisma.RecipeWhereInput {
   return {
     OR: [
@@ -369,17 +397,24 @@ export async function getRecipe(id: string, userId: string) {
   await assertCanRead(recipe, userId);
 
   const { favorites, ...rest } = recipe;
-  const writable = await canWrite(recipe, userId);
+  const [writable, preferences] = await Promise.all([canWrite(recipe, userId), getPreferences(userId)]);
 
   return {
     ...rest,
     isFavorite: favorites.length > 0,
     permissions: { canEdit: writable, canDelete: writable },
+    allergyWarnings: matchAllergens(
+      preferences?.allergies ?? [],
+      recipe.ingredients.map((line) => line.ingredient.name),
+    ),
   };
 }
 
 export async function createRecipe(userId: string, input: RecipeInput) {
   if (input.cookbookId) await assertCanAddToCookbook(input.cookbookId, userId);
+
+  const preferences = input.portions === undefined ? await getPreferences(userId) : null;
+  const portions = input.portions ?? preferences?.defaultPortions ?? 4;
 
   const [ingredients, tags] = await Promise.all([
     upsertIngredients(input.ingredients.map((ing) => ing.name)),
@@ -392,7 +427,7 @@ export async function createRecipe(userId: string, input: RecipeInput) {
       description: input.description,
       prepTime: input.prepTime,
       cookTime: input.cookTime,
-      portions: input.portions,
+      portions,
       sourceUrl: input.sourceUrl,
       // Une recette est personnelle si et seulement si elle n'est rattachée à aucun cookbook.
       // Dérivé ici et jamais reçu du client, pour rester la seule source de vérité.

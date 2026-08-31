@@ -210,7 +210,11 @@ Définissez vos préférences pour personnaliser l'expérience :
 - **Régime alimentaire** : végétarien, vegan, sans gluten, etc.
 - **Allergies** : gluten, arachides, lactose, etc.
 - **Cuisines préférées** : française, italienne, japonaise, etc.
-- **Portions par défaut** : nombre de personnes pour les nouvelles recettes
+- **Portions par défaut** : pré-remplit le champ Portions de toute nouvelle recette
+
+Les **allergies** déclarées sont confrontées aux ingrédients : un bandeau d'avertissement apparaît
+sur la fiche d'une recette qui en contient. Il s'agit d'un signalement, la recette reste consultable.
+Le régime alimentaire et les cuisines préférées sont pour l'instant purement déclaratifs.
 
 ### Comptes liés (OAuth2)
 

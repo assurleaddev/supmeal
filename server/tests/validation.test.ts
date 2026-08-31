@@ -121,3 +121,22 @@ test('les libellés partagés sont ramenés à une forme unique', () => {
   // Les diacritiques sont conservés : c'est la recherche, non le stockage, qui les ignore.
   assert.equal(canonicalName('Crème Fraîche'), 'crème fraîche');
 });
+
+// ─────────────────────────────────────────
+// Préférences culinaires
+// ─────────────────────────────────────────
+
+test('correspondance des allergènes par inclusion', () => {
+  // « arachide » doit alerter sur « beurre d'arachide » : une égalité stricte manquerait le cas.
+  const match = (allergies: string[], ingredients: string[]) =>
+    [...new Set(allergies.filter((a) => {
+      const needle = canonicalName(a);
+      return needle.length > 0 && ingredients.some((name) => name.includes(needle));
+    }))];
+
+  assert.deepEqual(match(['arachide'], ["beurre d'arachide", 'lait']), ['arachide']);
+  assert.deepEqual(match(['Lactose'], ['lait', 'farine']), []);
+  assert.deepEqual(match(['gluten', 'arachide'], ['farine de gluten', 'cacahuète']), ['gluten']);
+  assert.deepEqual(match([], ['arachide']), [], 'sans allergie déclarée, aucun avertissement');
+  assert.deepEqual(match([''], ['arachide']), [], 'une entrée vide ne doit pas tout faire correspondre');
+});

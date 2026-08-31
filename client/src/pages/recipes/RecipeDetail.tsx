@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Box, Typography, Paper, Grid, Chip, Button, IconButton,
-  Avatar, TextField, FormControl, InputLabel, Select,
+  Avatar, TextField, FormControl, InputLabel, Select, Alert,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -159,6 +159,15 @@ export default function RecipeDetail() {
               )}
             </Box>
           </Box>
+
+          {/* Les allergies déclarées dans les préférences sont confrontées aux ingrédients par le
+              serveur. Avertissement, jamais blocage. */}
+          {(recipe.allergyWarnings?.length ?? 0) > 0 && (
+            <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+              Cette recette contient {recipe.allergyWarnings!.length > 1 ? 'des ingrédients correspondant à vos allergies déclarées' : 'un ingrédient correspondant à une allergie déclarée'} :{' '}
+              <strong>{recipe.allergyWarnings!.join(', ')}</strong>.
+            </Alert>
+          )}
 
           {/* Stats */}
           <Grid container spacing={2} mt={2}>

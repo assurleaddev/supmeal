@@ -10,7 +10,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
-import { recipeApi, cookbookApi, tagApi } from '../../api';
+import { recipeApi, cookbookApi, tagApi, userApi } from '../../api';
 import { RecipeFormData } from '../../types';
 import { Input, Textarea } from '../../components/ui/Input';
 
@@ -29,7 +29,7 @@ export default function CreateEditRecipe() {
   const [loading, setLoading] = useState(false);
   const [cookbookId, setCookbookId] = useState<string>('');
 
-  const { register, control, handleSubmit, reset, formState: { errors } } = useForm<RecipeFormData>({
+  const { register, control, handleSubmit, reset, setValue, formState: { errors } } = useForm<RecipeFormData>({
     defaultValues: {
       title: '',
       portions: 4,
@@ -45,6 +45,20 @@ export default function CreateEditRecipe() {
     queryKey: ['cookbooks'],
     queryFn: () => cookbookApi.list().then((r) => r.data.data!),
   });
+
+  // Le nombre de portions par défaut vient des préférences de l'utilisateur (§2.2.5) : il était
+  // auparavant figé à 4, ce qui rendait la préférence inopérante.
+  const { data: profile } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => userApi.getMe().then((r) => r.data.data!),
+    enabled: !isEditing,
+  });
+
+  useEffect(() => {
+    if (isEditing) return;
+    const preferred = profile?.preferences?.defaultPortions;
+    if (preferred) setValue('portions', preferred);
+  }, [isEditing, profile, setValue]);
 
   const { data: suggestedTags } = useQuery({
     queryKey: ['tags'],

@@ -1084,6 +1084,12 @@ Toutes les routes sont préfixées par `/api`. Sauf mention contraire, elles exi
 | `PATCH` | `/me` | Modifie `username` et/ou `avatar`. `409` si le nom est déjà pris. |
 | `POST` | `/me/change-password` | Corps : `currentPassword`, `newPassword` (≥ 8). `400` pour un compte sans mot de passe (OAuth2 seul). |
 | `PATCH` | `/me/preferences` | `diet[]`, `allergies[]`, `cuisineTypes[]`, `defaultPortions`. |
+
+**Effet des préférences.** `defaultPortions` s'applique à toute recette créée sans nombre de
+portions explicite, et le formulaire pré-remplit le champ. `allergies` est confronté aux ingrédients
+sur `GET /api/recipes/:id`, qui renvoie `allergyWarnings[]` : la correspondance se fait par inclusion
+sur les formes canoniques, si bien que « arachide » alerte sur « beurre d'arachide ». C'est un
+avertissement affiché, jamais un blocage. `diet` et `cuisineTypes` restent déclaratifs.
 | `DELETE` | `/me/oauth/:provider` | Dissocie un fournisseur. `400` si c'est le dernier moyen de connexion. |
 
 ### 7.4 Recettes — `/api/recipes`
