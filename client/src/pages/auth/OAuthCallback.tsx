@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 export default function OAuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { setAuth } = useAuthStore();
+  const { setAuth, setTokens, logout } = useAuthStore();
 
   useEffect(() => {
     const accessToken = searchParams.get('accessToken');
@@ -21,8 +21,9 @@ export default function OAuthCallback() {
       return;
     }
 
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    // Les jetons sont confiés au store, qui les persiste : les écrire ici en plus créerait une
+    // seconde source de vérité, à l'origine de la boucle de rechargement.
+    setTokens(accessToken, refreshToken);
 
     userApi.getMe()
       .then((res) => {
@@ -32,8 +33,7 @@ export default function OAuthCallback() {
         navigate('/home');
       })
       .catch(() => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        logout();
         toast.error('Erreur lors de la récupération du profil');
         navigate('/login');
       });

@@ -8,6 +8,8 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+  /** Enregistre les jetons avant que le profil soit connu (retour OAuth2). */
+  setTokens: (accessToken: string, refreshToken: string) => void;
   updateUser: (user: Partial<User>) => void;
   logout: () => void;
 }
@@ -20,22 +22,19 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
 
-      setAuth: (user, accessToken, refreshToken) => {
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
-        set({ user, accessToken, refreshToken, isAuthenticated: true });
-      },
+      setAuth: (user, accessToken, refreshToken) =>
+        set({ user, accessToken, refreshToken, isAuthenticated: true }),
+
+      // isAuthenticated reste faux tant que le profil n'a pas été récupéré : les routes privées
+      // ne doivent pas s'ouvrir sur un utilisateur encore inconnu.
+      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
 
       updateUser: (updates) =>
         set((state) => ({
           user: state.user ? { ...state.user, ...updates } : null,
         })),
 
-      logout: () => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
-      },
+      logout: () => set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
     }),
     {
       name: 'supmeal-auth',
