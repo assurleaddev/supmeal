@@ -14,7 +14,8 @@
     "db:studio": "prisma studio",
     "test": "node --require ts-node/register --test tests/**/*.test.ts",
     "test:e2e": "node --require ts-node/register tests/e2e/api.e2e.ts",
-    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\""
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "test:socket": "node --require ts-node/register tests/e2e/socket.e2e.ts"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -56,6 +57,7 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",
+    "socket.io-client": "^4.8.3",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.3"

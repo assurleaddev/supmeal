@@ -59,7 +59,7 @@ export default function Navbar() {
           </Button>
 
           {/* User avatar button */}
-          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: 0.5 }}>
+          <IconButton aria-label="Ouvrir le menu du compte" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: 0.5 }}>
             <Avatar
               src={user?.avatar ?? undefined}
               sx={{ width: 34, height: 34, bgcolor: 'primary.light', color: 'primary.dark', fontSize: 14, fontWeight: 700 }}

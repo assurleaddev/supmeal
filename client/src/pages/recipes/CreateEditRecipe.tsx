@@ -126,7 +126,7 @@ export default function CreateEditRecipe() {
     <Box sx={{ maxWidth: 800, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <IconButton onClick={() => navigate(-1)}><ArrowBackIcon /></IconButton>
+        <IconButton aria-label="Revenir à la page précédente" onClick={() => navigate(-1)}><ArrowBackIcon /></IconButton>
         <Typography variant="h5" fontWeight={700}>{isEditing ? 'Modifier la recette' : 'Nouvelle recette'}</Typography>
       </Box>
 
@@ -194,7 +194,7 @@ export default function CreateEditRecipe() {
                 <Grid item xs={2}><Input placeholder="Unité" {...register(`ingredients.${index}.unit`)} /></Grid>
                 <Grid item xs={2}><Input placeholder="Notes" {...register(`ingredients.${index}.notes`)} /></Grid>
                 <Grid item xs={1} sx={{ display: 'flex', justifyContent: 'center', pt: 0.5 }}>
-                  <IconButton size="small" onClick={() => removeIngredient(index)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                  <IconButton aria-label={`Supprimer l'ingrédient ${index + 1}`} size="small" onClick={() => removeIngredient(index)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 </Grid>
@@ -226,7 +226,7 @@ export default function CreateEditRecipe() {
                     <Input type="number" inputProps={{ min: 0 }} placeholder="min" {...register(`steps.${index}.duration`, { valueAsNumber: true })} />
                   </Grid>
                 </Grid>
-                <IconButton size="small" onClick={() => removeStep(index)} sx={{ mt: 0.5, color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                <IconButton aria-label={`Supprimer l'étape ${index + 1}`} size="small" onClick={() => removeStep(index)} sx={{ mt: 0.5, color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
                   <CloseIcon fontSize="small" />
                 </IconButton>
               </Box>

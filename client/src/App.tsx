@@ -9,6 +9,7 @@ import Layout from './components/layout/Layout';
 import theme from './theme';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const OAuthCallback = lazy(() => import('./pages/auth/OAuthCallback'));
@@ -81,7 +82,9 @@ export default function App() {
                 <Route path="/data" element={<DataTransfer />} />
               </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
+              {/* Une URL inconnue affiche une 404 explicite plutôt que d'être redirigée en
+                  silence vers l'accueil. */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

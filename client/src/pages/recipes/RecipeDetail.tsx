@@ -281,7 +281,7 @@ export default function RecipeDetail() {
                     <Typography variant="body2" color="text.secondary" mt={0.25}>{comment.content}</Typography>
                   </Box>
                   {comment.userId === user?.id && (
-                    <IconButton size="small" onClick={() => handleDeleteComment(comment.id)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                    <IconButton aria-label="Supprimer ce commentaire" size="small" onClick={() => handleDeleteComment(comment.id)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   )}

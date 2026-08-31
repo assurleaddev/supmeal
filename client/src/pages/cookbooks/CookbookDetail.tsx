@@ -228,7 +228,7 @@ export default function CookbookDetail() {
                     <Chip label={ROLE_LABELS[member.role]} size="small" color="primary" variant="outlined" />
                   )}
                   {canManageMembers && member.userId !== user?.id && (
-                    <IconButton size="small" onClick={() => handleRemoveMember(member.userId, member.user.username)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                    <IconButton aria-label={`Retirer ${member.user.username} du cookbook`} size="small" onClick={() => handleRemoveMember(member.userId, member.user.username)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   )}
@@ -278,7 +278,7 @@ export default function CookbookDetail() {
               fullWidth
               variant="outlined"
             />
-            <IconButton type="submit" disabled={!msgInput.trim() || !canChat} color="primary">
+            <IconButton aria-label="Envoyer le message" type="submit" disabled={!msgInput.trim() || !canChat} color="primary">
               <SendIcon />
             </IconButton>
           </Box>

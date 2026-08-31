@@ -142,9 +142,12 @@ export default function MealPlanner() {
         </Paper>
       )}
 
-      {/* Weekly grid */}
+      {/* Weekly grid.
+          Sept colonnes ne tiennent pas sur un téléphone : la grille défile horizontalement plutôt
+          que d'être rognée par un overflow caché, qui rendait les derniers jours inatteignables. */}
       {currentPlan && (
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflowX: 'auto', overflowY: 'hidden' }}>
+          <Box sx={{ minWidth: { xs: 640, md: 0 } }}>
           {/* Day headers */}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: 'divider' }}>
             {weekDays.map((day) => (
@@ -173,16 +176,23 @@ export default function MealPlanner() {
                       {items.map((item) => (
                         <Box
                           key={item.id}
-                          sx={{ bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.100', borderRadius: 1.5, p: 0.75, position: 'relative', '&:hover .remove-btn': { display: 'flex' } }}
+                          sx={{ bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.100', borderRadius: 1.5, p: 0.75, position: 'relative' }}
                         >
                           <Typography variant="caption" fontWeight={600} color="primary.dark" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3 }}>
                             {item.recipe.title}
                           </Typography>
+                          {/* Auparavant `display: none` révélé au seul `:hover` : inatteignable au
+                              doigt comme au clavier. Toujours rendu, simplement atténué. */}
                           <IconButton
-                            className="remove-btn"
+                            aria-label={`Retirer ${item.recipe.title} du planning`}
                             size="small"
                             onClick={() => handleRemoveItem(currentPlan.id, item.id)}
-                            sx={{ display: 'none', position: 'absolute', top: -6, right: -6, width: 16, height: 16, bgcolor: 'error.main', color: 'white', '&:hover': { bgcolor: 'error.dark' } }}
+                            sx={{
+                              position: 'absolute', top: -6, right: -6, width: 18, height: 18,
+                              bgcolor: 'error.main', color: 'white', opacity: { xs: 1, md: 0.35 },
+                              transition: 'opacity 120ms',
+                              '&:hover, &:focus-visible': { opacity: 1, bgcolor: 'error.dark' },
+                            }}
                           >
                             <CloseIcon sx={{ fontSize: 10 }} />
                           </IconButton>
@@ -204,6 +214,7 @@ export default function MealPlanner() {
               </Box>
             </Box>
           ))}
+          </Box>
         </Paper>
       )}
 
