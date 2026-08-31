@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
 import { canonicalName } from '../utils/text';
+import { isSearchIndexReady } from '../config/searchIndex';
 import {
   optionalPositiveInt,
   optionalPositiveNumber,
@@ -221,23 +222,70 @@ function upsertTags(names: string[]) {
  * d'accès ne doit jamais pouvoir être écrasé par un filtre ultérieur, sans quoi la requête
  * exposerait les recettes des autres utilisateurs.
  */
+/** Borne le nombre d'identifiants rapatriés par la recherche textuelle. */
+const SEARCH_MATCH_CAP = 5000;
+
+/** `%` et `_` sont des jokers LIKE : ils doivent être neutralisés dans une saisie utilisateur. */
+const escapeLike = (term: string) => term.replace(/[\\%_]/g, (char) => `\\${char}`);
+
+/**
+ * Identifiants des recettes dont un champ textuel contient le terme, diacritiques ignorés.
+ *
+ * Passe par du SQL car `supmeal_normalize` — et les index GIN trigrammes posés dessus — ne sont pas
+ * exprimables avec le constructeur de requêtes Prisma. Le résultat est ensuite réinjecté comme un
+ * simple critère `id IN (…)`, de sorte que le filtre d'accès et la pagination restent gérés par
+ * Prisma et ne puissent pas être contournés par ce SQL.
+ */
+async function searchRecipeIds(term: string): Promise<string[]> {
+  const escaped = escapeLike(term);
+
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT DISTINCT r.id
+    FROM "Recipe" r
+    LEFT JOIN "RecipeStep" s ON s."recipeId" = r.id
+    LEFT JOIN "RecipeIngredient" ri ON ri."recipeId" = r.id
+    LEFT JOIN "Ingredient" i ON i.id = ri."ingredientId"
+    LEFT JOIN "RecipeTag" rt ON rt."recipeId" = r.id
+    LEFT JOIN "Tag" t ON t.id = rt."tagId"
+    WHERE supmeal_normalize(r.title) LIKE '%' || supmeal_normalize(${escaped}) || '%' ESCAPE '\'
+       OR supmeal_normalize(coalesce(r.description, '')) LIKE '%' || supmeal_normalize(${escaped}) || '%' ESCAPE '\'
+       OR supmeal_normalize(coalesce(s.description, '')) LIKE '%' || supmeal_normalize(${escaped}) || '%' ESCAPE '\'
+       OR supmeal_normalize(coalesce(i.name, '')) LIKE '%' || supmeal_normalize(${escaped}) || '%' ESCAPE '\'
+       OR supmeal_normalize(coalesce(t.name, '')) LIKE '%' || supmeal_normalize(${escaped}) || '%' ESCAPE '\'
+    LIMIT ${SEARCH_MATCH_CAP}
+  `;
+
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Repli lorsque les extensions PostgreSQL ne sont pas disponibles : `ILIKE`, donc sensible aux
+ * accents et sans index. Le périmètre des champs fouillés reste identique.
+ */
+function fallbackTextFilter(term: string): Prisma.RecipeWhereInput {
+  return {
+    OR: [
+      { title: { contains: term, mode: 'insensitive' } },
+      { description: { contains: term, mode: 'insensitive' } },
+      { steps: { some: { description: { contains: term, mode: 'insensitive' } } } },
+      { ingredients: { some: { ingredient: { name: { contains: term, mode: 'insensitive' } } } } },
+      { tags: { some: { tag: { name: { contains: term, mode: 'insensitive' } } } } },
+    ],
+  };
+}
+
+/** Critère textuel : titre, description, étapes (« contenu » du §2.2.2), ingrédients et tags. */
+async function textFilter(term: string): Promise<Prisma.RecipeWhereInput> {
+  if (!isSearchIndexReady()) return fallbackTextFilter(term);
+
+  const ids = await searchRecipeIds(term);
+  return { id: { in: ids } };
+}
+
 function buildSearchFilters(userId: string, query: RecipeQuery): Prisma.RecipeWhereInput[] {
   const filters: Prisma.RecipeWhereInput[] = [visibleRecipeFilter(userId)];
 
   if (query.cookbookId) filters.push({ cookbookId: query.cookbookId });
-
-  if (query.q) {
-    // Titre, description, étapes (le « contenu » au sens du §2.2.2), ingrédients et tags.
-    filters.push({
-      OR: [
-        { title: { contains: query.q, mode: 'insensitive' } },
-        { description: { contains: query.q, mode: 'insensitive' } },
-        { steps: { some: { description: { contains: query.q, mode: 'insensitive' } } } },
-        { ingredients: { some: { ingredient: { name: { contains: query.q, mode: 'insensitive' } } } } },
-        { tags: { some: { tag: { name: { contains: query.q, mode: 'insensitive' } } } } },
-      ],
-    });
-  }
 
   const tagList = splitList(query.tags);
   if (tagList.length > 0) {
@@ -272,7 +320,10 @@ function splitList(value?: string): string[] {
 // ─────────────────────────────────────────
 
 export async function listRecipes(userId: string, query: RecipeQuery) {
-  const where: Prisma.RecipeWhereInput = { AND: buildSearchFilters(userId, query) };
+  const filters = buildSearchFilters(userId, query);
+  if (query.q) filters.push(await textFilter(query.q));
+
+  const where: Prisma.RecipeWhereInput = { AND: filters };
   const skip = (query.page - 1) * query.limit;
 
   const [recipes, total] = await Promise.all([

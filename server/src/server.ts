@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { setupSocket } from './socket/socketHandler';
 import prisma from './config/database';
 import { env } from './config/env';
+import { ensureSearchIndex } from './config/searchIndex';
 
 const { PORT, CLIENT_URL } = env;
 
@@ -11,6 +12,9 @@ async function main() {
   // Test database connection
   await prisma.$connect();
   console.log('✅ Database connected');
+
+  // Extensions et index de recherche : DDL idempotente, hors de portée de `prisma db push`.
+  await ensureSearchIndex();
 
   const app = createApp();
   const httpServer = http.createServer(app);
