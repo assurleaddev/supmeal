@@ -21,6 +21,63 @@ interface Reply {
   body: any;
 }
 
+/**
+ * Envoi `multipart/form-data` d'un seul fichier.
+ *
+ * `/api/import` passe par multer et attend un champ `file` ; un corps JSON y est refusé avec
+ * « No file uploaded ». Assembler l'enveloppe à la main évite d'ajouter une dépendance de test.
+ */
+function uploadFile(
+  path: string,
+  token: string,
+  filename: string,
+  content: string,
+  contentType = 'application/json',
+): Promise<Reply> {
+  const boundary = '----supmealE2E' + stamp;
+  const payload = Buffer.from(
+    `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+      `Content-Type: ${contentType}\r\n\r\n` +
+      content +
+      `\r\n--${boundary}--\r\n`,
+    'utf8',
+  );
+
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        host: HOST,
+        port: PORT,
+        path,
+        method: 'POST',
+        headers: {
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': payload.length,
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      (res) => {
+        let raw = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => (raw += chunk));
+        res.on('end', () => {
+          let body: any = null;
+          try {
+            body = raw ? JSON.parse(raw) : null;
+          } catch {
+            body = { raw };
+          }
+          resolve({ status: res.statusCode ?? 0, body });
+        });
+      },
+    );
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
 function request(
   method: string,
   path: string,
@@ -462,6 +519,34 @@ async function main() {
   expect('export Mealie', exportMealie.status === 200 && Array.isArray(exportMealie.body));
   expect('vocabulaire Mealie respecté', typeof exportMealie.body?.[0]?.name === 'string' && Array.isArray(exportMealie.body?.[0]?.recipeIngredient));
   expect('format inconnu refusé', (await request('GET', '/api/export?format=xml', { token: alice.token })).status === 400);
+
+  // Une recette sans ingrédient ni étape n'a pas de sens dans l'application : la liste de courses
+  // n'en tire rien et le moteur de suggestions lui fabrique un vecteur vide. La création HTTP
+  // l'interdit ; l'import doit l'interdire aussi, sans pour autant rejeter tout le fichier.
+  const fichierImport = JSON.stringify({
+    personalRecipes: [
+      { title: 'Recette vide ' + stamp, ingredients: [], steps: [] },
+      {
+        title: 'Recette valide ' + stamp,
+        ingredients: [{ name: 'Farine' }],
+        steps: [{ description: 'Mélanger', orderIndex: 0 }],
+      },
+    ],
+    cookbooks: [],
+  });
+  const importMixte = await uploadFile('/api/import', alice.token, 'melange.json', fichierImport);
+  expect('import accepté', importMixte.status === 200 || importMixte.status === 201);
+  const rapport = importMixte.body?.data ?? importMixte.body;
+  expect('la recette valide est importée', rapport?.recipes === 1);
+  expect(
+    'la recette sans ingrédient est rejetée et nommée',
+    Array.isArray(rapport?.errors) &&
+      rapport.errors.length === 1 &&
+      /Recette vide/.test(rapport.errors[0]) &&
+      /ingredient/i.test(rapport.errors[0]),
+  );
+  const apresImport = await request('GET', `/api/recipes?q=Recette%20vide%20${stamp}`, { token: alice.token });
+  expect("elle n'est pas persistée", apresImport.body?.data?.total === 0);
 
   // ───────────────────────────────────────
   section('OAuth2');

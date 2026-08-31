@@ -352,6 +352,22 @@ async function createRecipe(
   userId: string,
   cookbookId: string | null,
 ) {
+  // Une recette a toujours au moins un ingrédient et une étape : `recipeSchema` l'impose à la
+  // création, et le modèle de données le documente en `1..N`. L'import ne peut pas faire exception,
+  // sinon il fabrique des recettes que la liste de courses et le moteur de suggestions ne savent pas
+  // traiter.
+  //
+  // Le contrôle est ici, et non dans `importedRecipeSchema`, parce que la validation Zod porte sur le
+  // fichier entier : un `.min(1)` y ferait échouer tout l'import à cause d'une seule recette. Placé
+  // dans cette fonction, il est intercepté par le `try` de `importData`, qui ignore la recette fautive
+  // et la nomme dans le rapport.
+  if (recipe.ingredients.length === 0) {
+    throw new Error('at least one ingredient is required');
+  }
+  if (recipe.steps.length === 0) {
+    throw new Error('at least one step is required');
+  }
+
   const ingredients = await Promise.all(
     recipe.ingredients.map((ing) =>
       tx.ingredient.upsert({

@@ -303,6 +303,7 @@ graph LR
     subgraph Acteurs
         V((Visiteur))
         U((Utilisateur))
+        X((Membre<br/>commentateur))
         E((Membre<br/>éditeur))
         C((Créateur<br/>de cookbook))
         P((Fournisseur<br/>OAuth2))
@@ -332,7 +333,7 @@ graph LR
     subgraph "Cookbooks partagés"
         UC16[Créer un cookbook]
         UC17[Rejoindre via invitation]
-        UC18[Commenter une recette]
+        UC18[Commenter une recette<br/>ou retirer son commentaire]
         UC19[Discuter en temps réel]
         UC20[Quitter le cookbook]
         UC21[Modifier le cookbook<br/>ou sa couverture]
@@ -375,14 +376,15 @@ graph LR
     U --> UC15
     U --> UC16
     U --> UC17
-    U --> UC18
-    U --> UC19
     U --> UC20
     U --> UC26
     U --> UC28
     U --> UC29
     U --> UC30
     U --> UC31
+
+    X --> UC18
+    X --> UC19
 
     E --> UC21
     E --> UC27
@@ -392,7 +394,8 @@ graph LR
     C --> UC24
     C --> UC25
 
-    E -.->|est un| U
+    X -.->|est un| U
+    E -.->|est un| X
     C -.->|est un| E
 ```
 
@@ -402,9 +405,20 @@ cookbook (UC20). Le rôle `CREATOR` naît avec le cookbook et ne s'attribue pas
 (`ASSIGNABLE_ROLES` exclut `CREATOR`, `server/src/services/cookbookService.ts`) : il n'existe donc
 aucun transfert de propriété, et la seule sortie du créateur est UC25 — supprimer le cookbook.
 
-La hiérarchie complète des rôles est `READER` < `COMMENTER` < `EDITOR` < `CREATOR`. Le seuil de
-chaque action figure dans la matrice des droits du §7.5 ; le §4.5 illustre son application au fil
-d'un échange temps réel.
+La hiérarchie complète des rôles est `READER` < `COMMENTER` < `EDITOR` < `CREATOR`, et les trois
+acteurs spécialisés du diagramme la suivent. Un membre simplement adhérent — un `READER` — ne peut
+**ni commenter ni écrire dans le chat** : UC18 et UC19 exigent `COMMENTER`, seuil appliqué aussi
+bien par `addComment` que par le gestionnaire `cookbook:sendMessage`. Le seuil de chaque action
+figure dans la matrice des droits du §7.5 ; le §4.5 illustre son application au fil d’un échange
+temps réel.
+
+Deux cas dépendent de la recette visée plutôt que d’un acteur :
+
+- **UC10** et **UC11** sont sans condition sur une recette **personnelle**. Dès qu’une recette
+  porte un `cookbookId`, l’écriture relève de `WRITE_ROLES` — `CREATOR` ou `EDITOR`. Un
+  `COMMENTER` ne peut donc pas modifier une recette du cookbook, **même celle qu’il a lui-même
+  rédigée** : l’appartenance prime sur la paternité (§7.4).
+- **UC18** couvre aussi le retrait de son propre commentaire, réservé à son auteur.
 
 Deux cas d'utilisation ne sont pas de simples lectures et méritent d'être situés :
 
@@ -660,12 +674,16 @@ sequenceDiagram
     else refresh refusé (401)
         A-->>U: 401 Invalid or expired refresh token
         U->>U: logout() du store + redirection /login
-        Note over U: les requêtes en attente<br/>sont rejetées
+        Note over U: les requêtes en attente<br/>expirent sur leur délai de garde
     end
 ```
 
 L'intercepteur HTTP du client sérialise les rafraîchissements : les requêtes concurrentes qui
 échouent en `401` attendent le nouveau jeton au lieu de déclencher chacune sa propre rotation.
+
+À l’échec, les requêtes déjà mises en attente ne sont pas rejetées activement : leur rappel est
+écarté de la file et chacune se règle sur son propre délai de garde de 15 s — en pratique la
+redirection vers `/login` décharge la page avant.
 
 Deux points que le diagramme rend visibles et qui ont leur importance. Le jeton de rafraîchissement
 est **vérifié avec un secret distinct** de celui des jetons d'accès : compromettre l'un ne suffit pas
@@ -700,7 +718,8 @@ sequenceDiagram
     alt identité déjà liée à un autre compte
         A-->>C: redirection /login?error=oauth&reason=…
     else identité déjà liée à ce compte
-        A->>D: UPDATE jetons du fournisseur
+        A->>D: SELECT User WHERE id = userId du state
+        Note over A,D: lien déjà présent — aucune écriture
         A-->>C: redirection /oauth/callback + jetons
     else identité inconnue
         A->>D: INSERT OAuthAccount (userId du state)
@@ -715,8 +734,10 @@ L'URL renvoyée par `POST /api/auth/link/:provider` **n'est pas celle du fournis
 l'API elle-même. Ce détour est ce qui permet à Passport de composer la requête d'autorisation
 (`scope`, `state`) sans que le client ait à connaître les paramètres propres à chaque fournisseur.
 
-Le rattachement est **idempotent** : relier deux fois la même identité au même compte met les jetons
-à jour sans créer de seconde ligne, la contrainte unique `(provider, providerId)` l'interdisant.
+Le rattachement est **idempotent** : relier deux fois la même identité au même compte ne crée pas
+de seconde ligne — la contrainte unique `(provider, providerId)` l’interdirait — et ne réécrit
+pas non plus les jetons du fournisseur. Le seul `UPDATE` de ces jetons appartient au flux de
+**connexion**, inatteignable dès qu’un `state` valide accompagne le callback.
 
 ### 4.5 Diagramme de séquence — messagerie temps réel et permissions
 
@@ -773,10 +794,15 @@ L'appartenance est vérifiée **deux fois**, au `cookbook:join` puis à chaque `
 La redondance est voulue : un rôle peut être abaissé pendant que la connexion reste ouverte, et seule
 la seconde vérification le voit.
 
-Une honnêteté sur l'état actuel : l'événement `error` est bien émis par le serveur, mais **aucun
-client ne s'y abonne**. Le refus n'atteint donc pas l'écran. En pratique l'interface désactive déjà
-la zone de saisie quand `canChat` est faux, si bien que ce chemin n'est atteignable qu'en
-contournant l'interface — la sécurité tient, le retour visuel manque.
+Une honnêteté sur l’état actuel : des quatre événements que le serveur émet, **seul
+`cookbook:message` est écouté**. `error`, `cookbook:joined` et `cookbook:left` partent bien vers
+la room, mais aucun client n’enregistre de gestionnaire pour eux — le hook socket n’expose que
+`onMessage`. Ni le refus, ni les arrivées et départs n’atteignent donc l’écran.
+
+Pour le refus, l’interface désactive déjà la zone de saisie quand `canChat` est faux : ce chemin
+n’est atteignable qu’en contournant l’interface, la sécurité tient, seul le retour visuel manque.
+La présence, elle, est une fonctionnalité câblée côté serveur et pas encore branchée côté client.
+Le dire ici coûte moins cher que de laisser croire l’inverse.
 
 ### 4.6 Diagramme de composants et de déploiement
 
@@ -827,14 +853,21 @@ graph TB
     EX --> VU
     DB --> VD
     EX -.->|échange de jeton| EXT
+    EXT -.->|"redirection du navigateur — 3000 (hôte)"| EX
 
     EX -.->|"depends_on: service_healthy"| DB
     NG -.->|depends_on| EX
 ```
 
 Les trois briques du §3 — backend, frontend, base de données — correspondent aux trois conteneurs.
-Le navigateur ne joint jamais l'API directement : nginx relaie `/api/`, `/uploads/` et `/socket.io/`,
-ce qui évite toute configuration CORS côté client.
+Pour le trafic applicatif, le navigateur ne joint jamais l’API directement : nginx relaie
+`/api/`, `/uploads/` et `/socket.io/`, ce qui évite toute configuration CORS côté client.
+
+**Le callback OAuth2 fait exception**, et c’est la seule. L’`redirect_uri` transmis aux
+fournisseurs vaut `OAUTH_CALLBACK_BASE/api/auth/<provider>/callback`, dont la valeur par défaut
+est `http://localhost:3000` : au retour du consentement, le fournisseur redirige le navigateur
+**directement sur le port publié du conteneur server**, sans passer par nginx. C’est précisément
+ce qui rend la publication du port `3000` nécessaire, et non un simple confort de débogage.
 
 **Ports publiés sur l'hôte.** Le client est exposé en `8080→80` : le port `80` du schéma n'est
 joignable que depuis le réseau Docker, et c'est bien `http://localhost:8080` qu'il faut ouvrir. L'API
@@ -871,15 +904,15 @@ flowchart TD
     F2 -->|Non| G[403 Insufficient permissions]
     F2 -->|Oui| K
 
-    K["Canonicalisation<br/>upsert ingrédients et tags"]
-    K --> K2["portions ?? defaultPortions<br/>des préférences ?? 4"]
+    K["portions ?? defaultPortions<br/>des préférences ?? 4"]
+    K --> K2["Canonicalisation<br/>upsert ingrédients et tags"]
     K2 --> L["isPersonal = !cookbookId"]
     L --> M[INSERT Recipe + relations]
     M --> Q([201 Created, recette renvoyée])
     Q --> N{Photo fournie ?}
     N -->|Non| P([Redirection vers /recipes/:id])
     N -->|Oui| O["POST /api/recipes/:id/image<br/>UUID + volume dédié"]
-    O --> O1{"Upload accepté ?<br/>type image et taille ≤ 5 Mo"}
+    O --> O1{"Upload accepté ?<br/>extension jpg/jpeg/png/webp/gif<br/>et taille ≤ 5 Mo"}
     O1 -->|Oui| P
     O1 -->|Non| O2["Recette créée sans photo<br/>message d'erreur, pas de redirection"]
 ```
@@ -895,6 +928,10 @@ défendable, mais c'est celui-ci qui est implémenté.
 renvoyé par le `201` qui le rend possible. La recette existe donc avant la photo, ce qui explique
 l'état final `O2` : un upload refusé laisse une recette bien créée, sans image, l'utilisateur
 restant sur le formulaire.
+
+Le filtre d’upload porte sur l’**extension** du nom de fichier, pas sur le type MIME déclaré :
+un fichier quelconque renommé en `.png` passe, un vrai JPEG sans extension est refusé. La limite
+de 5 Mo, elle, est appliquée sur la taille réelle.
 
 **Le formulaire filtre en amont.** Titre, portions, nom de chaque ingrédient et description de chaque
 étape sont requis côté client : tant qu'un champ manque, aucune requête n'est émise. La validation
@@ -1223,7 +1260,7 @@ distingue le personnel du partagé.
 | Association | Cardinalité | Justification |
 |---|---|---|
 | `Cookbook` → `CookbookMember` | 1 → 1..N | Un cookbook a toujours au moins son créateur ; celui-ci ne peut pas le quitter. |
-| `Recipe` → `RecipeIngredient` | 1 → 1..N | Le schéma de validation impose au moins un ingrédient. |
+| `Recipe` → `RecipeIngredient` | 1 → 1..N | Au moins un ingrédient, sur **les deux** chemins d’écriture : `recipeSchema` à la création, et une garde explicite à l’import. |
 | `Recipe` → `RecipeStep` | 1 → 1..N | Idem pour les étapes. |
 | `Recipe` → `Cookbook` | 0..1 | Une recette sans cookbook est personnelle (`isPersonal = true`). |
 | `User` → `UserPreferences` | 1 → 0..1 | Créées à l'inscription, absentes pour les comptes anciens. |
@@ -1250,8 +1287,19 @@ distingue le personnel du partagé.
 | `Recipe` | ingrédients, étapes, tags, favoris, commentaires, **entrées de planning** |
 | `MealPlan` | ses entrées |
 
-La cascade `Recipe` → `MealPlanItem` est indispensable : sans elle, supprimer une recette déjà
-planifiée violait la contrainte de clé étrangère et échouait en erreur 500.
+Une relation échappe à la cascade, et c’est délibéré :
+
+| Suppression de | Effet sur | Action |
+|---|---|---|
+| `Cookbook` | `MealPlan` partagés | `SET NULL` — le planning **n’est pas supprimé** : `cookbookId` repasse à `NULL` et il redevient un planning personnel de son auteur. |
+
+C’est la seule action référentielle non-`CASCADE` du schéma. Supprimer un cookbook détruit ses
+recettes, mais pas le travail de planification de ses membres — celui-ci leur reste, en
+personnel. Le §5.6 et `docs/schema-physique.sql` le montrent au niveau physique
+(`ON DELETE SET NULL` sur `MealPlan_cookbookId_fkey`).
+
+La cascade `Recipe` → `MealPlanItem` est, elle, indispensable : sans elle, supprimer une recette
+déjà planifiée violait la contrainte de clé étrangère et échouait en erreur 500.
 
 ### 5.5 Index
 
