@@ -1191,12 +1191,21 @@ cookbook n'est visible que par les membres de ce cookbook.
 | `GET` | `/` | Plannings de l'utilisateur. |
 | `GET` | `/week?offset=N` | Semaine relative (`0` courante, `-1` précédente). Renvoie `weekStart`, `weekEnd`, les 7 `days`, `today`, un `defaultName` et le `plan` s'il existe. |
 | `POST` | `/schedule` | Planifie une recette à une date : le serveur résout la semaine et crée le planning au besoin. Corps : `recipeId`, `date`, `mealType`, `portions?`, `planName?`. |
-| `POST` | `/` | Crée un planning. Corps : `weekStart` (`YYYY-MM-DD`), `name?`, `cookbookId?`. |
+| `POST` | `/` | Crée un planning. Corps : `weekStart` (`YYYY-MM-DD`), `name?`, `cookbookId?`. Rattacher un cookbook exige d'y être `CREATOR` ou `EDITOR`. |
 | `GET` | `/:id` | Détail d'un planning. |
 | `DELETE` | `/:id` | Supprime un planning et ses entrées. |
 | `POST` | `/:id/items` | Ajoute une entrée à un planning existant. |
 | `DELETE` | `/:id/items/:itemId` | Retire une entrée. La suppression est cantonnée au planning indiqué. |
 | `GET` | `/:id/shopping-list` | Liste de courses agrégée : `[{ name, totalQuantity, unit, notes[] }]`. |
+
+**Plannings partagés.** Un planning dont `cookbookId` est renseigné appartient au cookbook et non à
+son seul auteur : tous ses membres le voient et le retrouvent sur `GET /week`. Les rôles s'appliquent
+comme pour les recettes — `CREATOR` et `EDITOR` remanient le planning, `COMMENTER` et `READER` le
+consultent. C'est la forme que prend « planifier des repas ensemble » du §2.1. Un planning sans
+`cookbookId` reste strictement personnel.
+
+Lorsque plusieurs plannings couvrent la même semaine, `GET /week` privilégie le planning personnel :
+un planning de groupe ne doit pas masquer celui que l'on tient pour soi.
 
 L'agrégation regroupe par couple (ingrédient, unité), l'unité étant normalisée pour la comparaison —
 `g` et `G` fusionnent. Aucune conversion entre unités différentes n'est tentée : 200 g et 0,2 kg

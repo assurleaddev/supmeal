@@ -5,6 +5,7 @@ import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import {
   Box, Typography, Paper, Button, Chip, TextField, IconButton, Divider,
+  FormControl, InputLabel, Select,
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -12,7 +13,8 @@ import TodayIcon from '@mui/icons-material/Today';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
-import { mealPlanApi, recipeApi } from '../api';
+import GroupsIcon from '@mui/icons-material/Groups';
+import { mealPlanApi, recipeApi, cookbookApi } from '../api';
 import { MealType, MealPlanItem, Recipe } from '../types';
 import { Modal } from '../components/ui/Modal';
 
@@ -23,6 +25,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 export default function MealPlanner() {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [shareCookbookId, setShareCookbookId] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [addItemTarget, setAddItemTarget] = useState<{ date: string; mealType: MealType } | null>(null);
@@ -47,6 +50,15 @@ export default function MealPlanner() {
     queryClient.invalidateQueries({ queryKey: ['meal-plan-week'] });
   };
 
+  // Les cookbooks où l'utilisateur peut écrire : un planning peut y être rattaché pour être
+  // partagé avec les autres membres (§2.1 « planifier des repas ensemble »).
+  const { data: cookbooks } = useQuery({
+    queryKey: ['cookbooks'],
+    queryFn: () => cookbookApi.list().then((r) => r.data.data!),
+  });
+
+  const shareableCookbooks = (cookbooks ?? []).filter((cb) => cb.permissions.canEditRecipes);
+
   const { data: plans } = useQuery({
     queryKey: ['meal-plans'],
     queryFn: () => mealPlanApi.list().then((r) => r.data.data!),
@@ -69,7 +81,11 @@ export default function MealPlanner() {
   const handleCreatePlan = async () => {
     try {
       if (!week) return;
-      const res = await mealPlanApi.create({ name: week.defaultName, weekStart: week.weekStart });
+      const res = await mealPlanApi.create({
+        name: week.defaultName,
+        weekStart: week.weekStart,
+        cookbookId: shareCookbookId || null,
+      });
       setSelectedPlanId(res.data.data!.id);
       refreshPlanning();
       toast.success('Planning créé !');
@@ -107,6 +123,14 @@ export default function MealPlanner() {
         <Box>
           <Typography variant="h5" fontWeight={700}>Planning de repas</Typography>
           <Typography variant="body2" color="text.secondary">{week?.defaultName ?? '…'}</Typography>
+          {currentPlan?.cookbook && (
+            <Chip
+              size="small"
+              icon={<GroupsIcon sx={{ fontSize: 16 }} />}
+              label={`Partagé — ${currentPlan.cookbook.name}`}
+              sx={{ mt: 0.75, bgcolor: 'primary.50', color: 'primary.dark', fontWeight: 600 }}
+            />
+          )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           <Button variant="outlined" size="small" startIcon={<ChevronLeftIcon />} onClick={() => { setWeekOffset((o) => o - 1); setSelectedPlanId(null); }} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>Préc.</Button>
@@ -138,7 +162,31 @@ export default function MealPlanner() {
           <Typography fontSize={48} mb={1}>📅</Typography>
           <Typography variant="h6" fontWeight={600} mb={0.5}>Aucun planning pour cette semaine</Typography>
           <Typography variant="body2" color="text.secondary" mb={2}>Créez un planning pour organiser vos repas</Typography>
-          <Button variant="contained" onClick={handleCreatePlan}>Créer le planning de la semaine</Button>
+
+          {/* Rattacher le planning à un cookbook le rend visible et modifiable par ses membres,
+              ce qui est la forme que prend « planifier des repas ensemble » (§2.1). */}
+          {shareableCookbooks.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 260, mb: 2, display: 'block', mx: 'auto', maxWidth: 320 }}>
+              <InputLabel shrink>Partager avec un cookbook</InputLabel>
+              <Select
+                native
+                notched
+                label="Partager avec un cookbook"
+                value={shareCookbookId}
+                onChange={(e) => setShareCookbookId(e.target.value as string)}
+                fullWidth
+              >
+                <option value="">Planning personnel</option>
+                {shareableCookbooks.map((cb) => (
+                  <option key={cb.id} value={cb.id}>{cb.name}</option>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          <Button variant="contained" onClick={handleCreatePlan}>
+            {shareCookbookId ? 'Créer le planning partagé' : 'Créer le planning de la semaine'}
+          </Button>
         </Paper>
       )}
 

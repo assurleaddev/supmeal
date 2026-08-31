@@ -152,6 +152,17 @@ La page **"Mes recettes"** propose des filtres puissants :
 
 ## 6. Planning de repas
 
+### Planifier à plusieurs
+
+Au moment de créer le planning de la semaine, le menu **« Partager avec un cookbook »** permet de le
+rattacher à l'un de vos cookbooks. Le planning devient alors celui du groupe : tous les membres le
+voient, et les **Créateurs** comme les **Éditeurs** peuvent y ajouter ou retirer des repas. Les
+**Commentateurs** et **Lecteurs** le consultent sans le modifier.
+
+Un bandeau **« Partagé »** rappelle, au-dessus de la grille, à quel cookbook le planning appartient.
+
+Sans sélection, le planning reste personnel et n'est visible que de vous.
+
 ### Créer un planning
 
 1. Page **"Planning"** → **"Créer le planning de la semaine"**
@@ -261,6 +272,9 @@ Associez ou dissociez des comptes Google, GitHub ou Microsoft à votre profil.
 | **Commentateur** | ✔ | ✔ | — | — |
 | **Lecteur** | ✔ | — | — | — |
 
+L'onglet **Membres** d'un cookbook indique, sous le nom de chaque personne, ce que son rôle
+l'autorise à faire, et rappelle les quatre rôles en pied de liste.
+
 Seul le créateur peut inviter, changer un rôle ou supprimer le cookbook. Il ne peut pas quitter son
 propre cookbook : il doit le supprimer.
 
@@ -268,6 +282,11 @@ propre cookbook : il doit le supprimer.
 
 En quittant un cookbook, vous perdez l'accès à **toutes** ses recettes, y compris celles que vous y
 avez ajoutées : elles restent au cookbook et à ses membres.
+
+### Origine d'une recette
+
+La fiche indique toujours d'où vient la recette : un lien vers la **source** si vous en avez fourni
+une à la création, la mention **« Création personnelle »** dans le cas contraire.
 
 ### Recherche
 

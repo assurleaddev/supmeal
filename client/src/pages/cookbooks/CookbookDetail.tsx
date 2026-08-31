@@ -25,6 +25,14 @@ const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 const ROLE_LABELS: Record<CookbookRole, string> = { CREATOR: 'Créateur', EDITOR: 'Éditeur', COMMENTER: 'Commentateur', READER: 'Lecteur' };
 
+/** Ce que chaque rôle autorise, pour que les permissions soient lisibles et pas seulement nommées. */
+const ROLE_ABILITIES: Record<CookbookRole, string> = {
+  CREATOR: 'Tout : recettes, membres, invitations, suppression du cookbook',
+  EDITOR: 'Consulter, créer et modifier des recettes, commenter, discuter',
+  COMMENTER: 'Consulter les recettes, commenter et discuter',
+  READER: 'Consulter les recettes et lire les discussions',
+};
+
 export default function CookbookDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -214,7 +222,11 @@ export default function CookbookDetail() {
                   </Avatar>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant="body2" fontWeight={600}>{member.user.username}</Typography>
-                    <Typography variant="caption" color="text.secondary">{member.user.email}</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">{member.user.email}</Typography>
+                    {/* Le rôle seul ne dit pas ce qu'il permet : la capacité accordée est explicitée. */}
+                    <Typography variant="caption" color="text.disabled" display="block">
+                      {ROLE_ABILITIES[member.role]}
+                    </Typography>
                   </Box>
                   {canManageMembers && member.userId !== user?.id ? (
                     <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -234,6 +246,16 @@ export default function CookbookDetail() {
                   )}
                 </Box>
               </Box>
+            ))}
+          </Box>
+          <Box sx={{ px: 2, py: 1.5, bgcolor: 'grey.50', borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.75}>
+              Rôles d'un cookbook
+            </Typography>
+            {(['CREATOR', 'EDITOR', 'COMMENTER', 'READER'] as CookbookRole[]).map((role) => (
+              <Typography key={role} variant="caption" color="text.secondary" display="block">
+                <strong>{ROLE_LABELS[role]}</strong> — {ROLE_ABILITIES[role]}
+              </Typography>
             ))}
           </Box>
         </Paper>

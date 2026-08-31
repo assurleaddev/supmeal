@@ -13,6 +13,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import { recipeApi, mealPlanApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
 import { MealType } from '../../types';
@@ -211,6 +212,12 @@ export default function RecipeDetail() {
             </Box>
           )}
 
+          {!recipe.sourceUrl && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <PersonOutlineIcon sx={{ fontSize: 18 }} />
+              Création personnelle
+            </Typography>
+          )}
           {recipe.sourceUrl && (
             <Button component="a" href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" size="small" startIcon={<OpenInNewIcon />} color="primary" sx={{ mt: 2, textDecoration: 'none' }}>
               Voir la source

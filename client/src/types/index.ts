@@ -146,6 +146,8 @@ export interface MealPlan {
   createdAt: string;
   items: MealPlanItem[];
   cookbook?: { id: string; name: string } | null;
+  /** Auteur du planning — utile lorsqu il est partagé au sein d un cookbook. */
+  user?: { id: string; username: string };
 }
 
 export interface MealPlanItem {

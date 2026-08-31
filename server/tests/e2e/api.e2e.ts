@@ -244,6 +244,106 @@ async function main() {
   expect('une recette planifiée reste supprimable', (await request('DELETE', `/api/recipes/${plannedId}`, { token: alice.token })).status === 200);
 
   // ───────────────────────────────────────
+  section('Planification partagée (§2.1)');
+
+  // Un cookbook neuf, avec Bob remis EDITOR : les rétrogradations précédentes l'ont laissé READER.
+  const planCookbook = await request('POST', '/api/cookbooks', {
+    token: alice.token,
+    body: { name: `Planning partagé ${stamp}` },
+  });
+  const planCookbookId = planCookbook.body?.data?.id as string;
+
+  const planInvite = await request('POST', `/api/cookbooks/${planCookbookId}/invite`, {
+    token: alice.token,
+    body: { email: bob.email, role: 'EDITOR' },
+  });
+  await request('POST', `/api/cookbooks/join/${planInvite.body.data.token}`, { token: bob.token });
+
+  const sharedPlan = await request('POST', '/api/meal-plans', {
+    token: alice.token,
+    body: { name: 'Menus du groupe', weekStart: '2026-10-05', cookbookId: planCookbookId },
+  });
+  expect('création d un planning rattaché à un cookbook', sharedPlan.status === 201, `HTTP ${sharedPlan.status}`);
+  const sharedPlanId = sharedPlan.body?.data?.id as string;
+
+  // Le cœur de l'exigence : un autre membre doit voir le planning du groupe.
+  const bobPlans = await request('GET', '/api/meal-plans', { token: bob.token });
+  expect(
+    'un autre membre voit le planning du groupe',
+    (bobPlans.body?.data ?? []).some((p: any) => p.id === sharedPlanId),
+  );
+  expect(
+    'lecture directe autorisée au membre',
+    (await request('GET', `/api/meal-plans/${sharedPlanId}`, { token: bob.token })).status === 200,
+  );
+
+  // La recette planifiée doit être visible de Bob : une recette personnelle d'Alice lui est
+  // légitimement refusée, on en dépose donc une dans le cookbook du groupe.
+  const groupRecipe = await request('POST', '/api/recipes', {
+    token: alice.token,
+    body: {
+      title: 'Rôti du dimanche',
+      cookbookId: planCookbookId,
+      ingredients: [{ name: 'rôti', quantity: 1, unit: 'kg', orderIndex: 0 }],
+      steps: [{ description: 'Enfourner', orderIndex: 0 }],
+    },
+  });
+  const groupRecipeId = groupRecipe.body?.data?.id as string;
+
+  expect(
+    'une recette personnelle d autrui reste refusée',
+    (await request('POST', `/api/meal-plans/${sharedPlanId}/items`, {
+      token: bob.token,
+      body: { recipeId, date: '2026-10-06', mealType: 'LUNCH' },
+    })).status === 404,
+  );
+
+  const bobAdds = await request('POST', `/api/meal-plans/${sharedPlanId}/items`, {
+    token: bob.token,
+    body: { recipeId: groupRecipeId, date: '2026-10-07', mealType: 'DINNER' },
+  });
+  expect('un EDITOR ajoute un repas au planning du groupe', bobAdds.status === 201, `HTTP ${bobAdds.status}`);
+
+  const aliceSees = await request('GET', `/api/meal-plans/${sharedPlanId}`, { token: alice.token });
+  expect(
+    'la contribution est visible par les autres',
+    (aliceSees.body?.data?.items ?? []).some((i: any) => i.date.startsWith('2026-10-07')),
+  );
+
+  // Un tiers hors du cookbook ne doit rien voir.
+  const stranger = await register('etranger');
+  expect(
+    'un non-membre ne voit pas le planning',
+    (await request('GET', `/api/meal-plans/${sharedPlanId}`, { token: stranger.token })).status === 403,
+  );
+  expect(
+    'un non-membre ne peut pas y planifier',
+    (await request('POST', '/api/meal-plans', {
+      token: stranger.token,
+      body: { weekStart: '2026-10-05', cookbookId: planCookbookId },
+    })).status === 403,
+  );
+
+  // Un READER consulte sans pouvoir remanier.
+  await request('PATCH', `/api/cookbooks/${planCookbookId}/members/${bob.id}`, {
+    token: alice.token,
+    body: { role: 'READER' },
+  });
+  expect(
+    'un READER lit toujours le planning',
+    (await request('GET', `/api/meal-plans/${sharedPlanId}`, { token: bob.token })).status === 200,
+  );
+  expect(
+    'un READER ne peut pas y ajouter de repas',
+    (await request('POST', `/api/meal-plans/${sharedPlanId}/items`, {
+      token: bob.token,
+      body: { recipeId: groupRecipeId, date: '2026-10-08', mealType: 'LUNCH' },
+    })).status === 403,
+  );
+
+  await request('DELETE', `/api/cookbooks/${planCookbookId}`, { token: alice.token });
+
+  // ───────────────────────────────────────
   section('Export et import');
 
   const exportJson = await request('GET', '/api/export?format=json', { token: alice.token });

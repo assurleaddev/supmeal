@@ -1,4 +1,4 @@
-import { MealType, Prisma } from '@prisma/client';
+import { CookbookRole, MealType, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
@@ -51,16 +51,71 @@ const planInclude = {
     orderBy: [{ date: 'asc' as const }, { mealType: 'asc' as const }],
   },
   cookbook: { select: { id: true, name: true } },
+  user: { select: { id: true, username: true } },
 } satisfies Prisma.MealPlanInclude;
 
 // ─────────────────────────────────────────
-// Appartenance
+// Accès
 // ─────────────────────────────────────────
 
-/** Un planning n'est accessible qu'à son propriétaire. */
-async function assertOwnsPlan(planId: string, userId: string) {
+/**
+ * Plannings visibles par un utilisateur.
+ *
+ * Le §2.1 prévoit que les membres d'un cookbook puissent « planifier des repas ensemble ». Un
+ * planning rattaché à un cookbook est donc partagé par tous ses membres, et pas seulement par celui
+ * qui l'a créé. La colonne `cookbookId` existait mais n'était jamais relue : elle était acceptée à
+ * la création puis ignorée, si bien qu'aucun planning n'était réellement collectif.
+ */
+export function visiblePlanFilter(userId: string): Prisma.MealPlanWhereInput {
+  return {
+    OR: [
+      { cookbookId: null, userId },
+      { cookbookId: { not: null }, cookbook: { members: { some: { userId } } } },
+    ],
+  };
+}
+
+/** Rôles autorisés à modifier un planning partagé, alignés sur ceux des recettes. */
+const PLAN_WRITE_ROLES: CookbookRole[] = [CookbookRole.CREATOR, CookbookRole.EDITOR];
+
+async function findPlanOrFail(planId: string) {
   const plan = await prisma.mealPlan.findUnique({ where: { id: planId } });
   if (!plan) throw new AppError('Meal plan not found', 404);
+  return plan;
+}
+
+async function membership(cookbookId: string, userId: string) {
+  return prisma.cookbookMember.findUnique({
+    where: { cookbookId_userId: { cookbookId, userId } },
+  });
+}
+
+/** Lecture : le propriétaire d'un planning personnel, ou tout membre d'un planning de cookbook. */
+async function assertCanReadPlan(planId: string, userId: string) {
+  const plan = await findPlanOrFail(planId);
+
+  if (plan.cookbookId) {
+    if (await membership(plan.cookbookId, userId)) return plan;
+    throw new AppError('Access denied', 403);
+  }
+
+  if (plan.userId !== userId) throw new AppError('Access denied', 403);
+  return plan;
+}
+
+/**
+ * Écriture : le propriétaire d'un planning personnel, ou un CREATOR/EDITOR pour un planning
+ * partagé. Un COMMENTER ou un READER consulte le planning du groupe sans pouvoir le remanier.
+ */
+async function assertCanWritePlan(planId: string, userId: string) {
+  const plan = await findPlanOrFail(planId);
+
+  if (plan.cookbookId) {
+    const member = await membership(plan.cookbookId, userId);
+    if (member && PLAN_WRITE_ROLES.includes(member.role)) return plan;
+    throw new AppError('Insufficient permissions', 403);
+  }
+
   if (plan.userId !== userId) throw new AppError('Access denied', 403);
   return plan;
 }
@@ -71,14 +126,14 @@ async function assertOwnsPlan(planId: string, userId: string) {
 
 export function listPlans(userId: string) {
   return prisma.mealPlan.findMany({
-    where: { userId },
+    where: visiblePlanFilter(userId),
     include: planInclude,
     orderBy: { weekStart: 'desc' },
   });
 }
 
 export async function getPlan(planId: string, userId: string) {
-  await assertOwnsPlan(planId, userId);
+  await assertCanReadPlan(planId, userId);
   return prisma.mealPlan.findUnique({ where: { id: planId }, include: planInclude });
 }
 
@@ -89,8 +144,12 @@ export async function getPlan(planId: string, userId: string) {
 export async function getWeek(userId: string, offset: number) {
   const { weekStart, weekStartString, weekEndString, days } = resolveWeek(offset);
 
+  // Le planning de la semaine peut être celui de l'utilisateur, ou celui partagé par un cookbook
+  // dont il est membre. Les personnels passent d'abord, un planning de groupe ne devant pas masquer
+  // celui qu'on tient pour soi.
   const plan = await prisma.mealPlan.findFirst({
-    where: { userId, weekStart },
+    where: { AND: [visiblePlanFilter(userId), { weekStart }] },
+    orderBy: { cookbookId: { sort: 'asc', nulls: 'first' } },
     include: planInclude,
   });
 
@@ -115,7 +174,17 @@ export async function getWeek(userId: string, offset: number) {
 // Écriture
 // ─────────────────────────────────────────
 
-export function createPlan(userId: string, input: z.infer<typeof mealPlanSchema>) {
+export async function createPlan(userId: string, input: z.infer<typeof mealPlanSchema>) {
+  // Rattacher un planning à un cookbook le rend visible de tous ses membres : il faut donc y avoir
+  // les droits d'écriture. Sans ce contrôle, n'importe qui pouvait déposer un planning dans le
+  // cookbook d'autrui en fournissant son identifiant.
+  if (input.cookbookId) {
+    const member = await membership(input.cookbookId, userId);
+    if (!member || !PLAN_WRITE_ROLES.includes(member.role)) {
+      throw new AppError('Insufficient permissions to plan in this cookbook', 403);
+    }
+  }
+
   return prisma.mealPlan.create({
     data: {
       userId,
@@ -128,7 +197,7 @@ export function createPlan(userId: string, input: z.infer<typeof mealPlanSchema>
 }
 
 export async function deletePlan(planId: string, userId: string) {
-  await assertOwnsPlan(planId, userId);
+  await assertCanWritePlan(planId, userId);
   await prisma.mealPlan.delete({ where: { id: planId } });
 }
 
@@ -137,14 +206,17 @@ export async function deletePlan(planId: string, userId: string) {
  * en le créant.
  *
  * Le client se contentait d'une date et recalculait lui-même le lundi de la semaine, avec un
- * décalage systématique le dimanche ( y vaut 0, ce qui renvoyait au lundi suivant) : le
+ * décalage systématique le dimanche (getDay() y vaut 0, ce qui renvoyait au lundi suivant) : le
  * repas était rattaché à la semaine d'après et n'apparaissait jamais dans sa grille. La résolution
  * de la semaine appartient au serveur (§2.3.1).
  */
 export async function scheduleRecipe(userId: string, input: z.infer<typeof scheduleSchema>) {
   const weekStart = startOfWeek(new Date(input.date + 'T00:00:00Z'));
 
-  let plan = await prisma.mealPlan.findFirst({ where: { userId, weekStart } });
+  let plan = await prisma.mealPlan.findFirst({
+    where: { AND: [visiblePlanFilter(userId), { weekStart }] },
+    orderBy: { cookbookId: { sort: 'asc', nulls: 'first' } },
+  });
 
   if (!plan) {
     const label = weekStart.toLocaleDateString('fr-FR', {
@@ -170,7 +242,7 @@ export async function addItem(
   userId: string,
   input: z.infer<typeof mealPlanItemSchema>,
 ) {
-  await assertOwnsPlan(planId, userId);
+  await assertCanWritePlan(planId, userId);
 
   // La recette doit être visible par l'utilisateur : sans ce contrôle, n'importe quel identifiant
   // de recette pouvait être planifié, y compris celui d'une recette privée d'un autre compte.
@@ -193,7 +265,7 @@ export async function addItem(
 }
 
 export async function removeItem(planId: string, itemId: string, userId: string) {
-  await assertOwnsPlan(planId, userId);
+  await assertCanWritePlan(planId, userId);
 
   // Filtré sur `mealPlanId` : sans cette contrainte, le propriétaire d'un planning pouvait
   // supprimer l'entrée d'un planning appartenant à quelqu'un d'autre en fournissant son identifiant.
@@ -272,7 +344,7 @@ export function aggregateIngredients(items: PlannedRecipe[]): ShoppingListEntry[
 }
 
 export async function getShoppingList(planId: string, userId: string): Promise<ShoppingListEntry[]> {
-  await assertOwnsPlan(planId, userId);
+  await assertCanReadPlan(planId, userId);
 
   const plan = await prisma.mealPlan.findUnique({
     where: { id: planId },
