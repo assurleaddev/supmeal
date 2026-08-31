@@ -303,8 +303,8 @@ export default function CookbookDetail() {
             <>
               <Input label="Email du membre" type="email" value={inviteEmail} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteEmail(e.target.value)} placeholder="membre@email.com" />
               <FormControl fullWidth size="small">
-                <InputLabel>Rôle</InputLabel>
-                <Select native label="Rôle" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as CookbookRole)}>
+                <InputLabel shrink>Rôle</InputLabel>
+                <Select native notched label="Rôle" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as CookbookRole)}>
                   {(['EDITOR', 'COMMENTER', 'READER'] as CookbookRole[]).map((r) => (
                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                   ))}

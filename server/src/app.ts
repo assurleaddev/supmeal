@@ -44,6 +44,13 @@ export function createApp() {
   }
 
   // ─── Rate Limiting ────────────────────────
+  // Le serveur est systématiquement derrière le reverse proxy nginx : sans cette confiance
+  // explicite, `req.ip` vaut l'adresse du proxy et non celle du client. La limitation de débit
+  // comptait alors tous les visiteurs dans un seul et même seau, si bien qu'un utilisateur un peu
+  // actif bloquait l'authentification de tous les autres. Un seul saut est déclaré, nginx étant le
+  // seul intermédiaire : au-delà, un client pourrait forger son propre X-Forwarded-For.
+  app.set('trust proxy', 1);
+
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 20,

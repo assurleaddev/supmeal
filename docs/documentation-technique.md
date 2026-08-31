@@ -144,6 +144,26 @@ Si l'identité du fournisseur est déjà rattachée à un autre compte SUPMEAL, 
 
 ---
 
+### Captures d'écran du manuel utilisateur
+
+Les illustrations du manuel sont générées en pilotant l'application, afin de rester régénérables
+après une évolution de l'interface plutôt que reprises à la main :
+
+```bash
+docker compose up -d
+docker compose exec server npm run db:seed
+cd client && npm run captures
+```
+
+Le script `client/scripts/captures.mjs` s'appuie sur Playwright, garni la semaine de planning en
+cours par l'API pour que les écrans ne soient pas vides, et écrit dans `docs/captures/`. Il est
+idempotent : le relancer ne duplique pas les repas.
+
+Les écrans de consentement de Google et de GitHub ne peuvent pas en faire partie : ils appartiennent
+à ces fournisseurs et exigent un compte réel.
+
+---
+
 ### Jeu de données de démonstration (optionnel)
 
 Le seed n'est **pas** exécuté automatiquement par Docker. Pour peupler la base avec les tags par
@@ -989,7 +1009,10 @@ dans la colonne `users.passwordHash`, qui est nullable pour les comptes créés 
 ### Protections applicatives
 
 - **Rate limiting** — 20 requêtes / 15 min sur les routes `/api/auth`, 500 requêtes / 15 min sur le
-  reste de l'API (`server/src/app.ts:46-56`).
+  reste de l'API. `app.set('trust proxy', 1)` est indispensable : sans lui, `req.ip` vaut l'adresse
+  de nginx et tous les visiteurs sont comptés dans un seul seau, si bien qu'un utilisateur actif
+  bloque l'authentification de tous les autres. Un seul saut est déclaré, nginx étant le seul
+  intermédiaire.
 - **Validation** — toutes les entrées des routes mutantes sont validées côté serveur avec Zod.
 - **CORS** — origine restreinte à la valeur de `CLIENT_URL`.
 - **Helmet** — en-têtes de sécurité HTTP : CSP, HSTS, `X-Content-Type-Options: nosniff`,

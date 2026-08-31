@@ -117,8 +117,8 @@ export default function RecipeList() {
         <Grid container spacing={1.5}>
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
-              <InputLabel>Cookbook</InputLabel>
-              <Select native label="Cookbook" value={cookbookId} onChange={(e) => { setCookbookId(e.target.value as string); setPage(1); }}>
+              <InputLabel shrink>Cookbook</InputLabel>
+              <Select native notched label="Cookbook" value={cookbookId} onChange={(e) => { setCookbookId(e.target.value as string); setPage(1); }}>
                 <option value="">Tous les cookbooks</option>
                 <option value="personal">Recettes personnelles</option>
                 {cookbooksData?.map((cb) => <option key={cb.id} value={cb.id}>{cb.name}</option>)}

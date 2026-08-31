@@ -1,11 +1,14 @@
 # Manuel Utilisateur — SUPMEAL
 
-> **Captures d'écran** — les emplacements marqués `[Capture : …]` indiquent les illustrations à
-> insérer dans `docs/captures/`. Elles ne peuvent être produites qu'en exécutant l'application avec
-> un jeu de données réel et, pour OAuth2, des identifiants de fournisseur qui ne figurent pas dans le
-> rendu (voir la documentation technique, §2, activation d'OAuth2).
+> **Captures d'écran** — les illustrations de ce manuel sont dans `docs/captures/`. Elles sont
+> régénérables à l'identique par `cd client && npm run captures`, qui pilote l'application réelle
+> après un `docker compose up -d` et le chargement du jeu de démonstration. Seuls les écrans de
+> consentement de Google et de GitHub en sont absents : ils appartiennent à ces fournisseurs et
+> exigent de s'authentifier avec un compte réel.
 
 ## Présentation
+
+![Page d’accueil publique de SUPMEAL](captures/01-accueil-public.png)
 
 SUPMEAL est une application web de gestion de recettes et de planification de repas. Elle permet de créer, organiser et partager des recettes au sein de cookbooks collaboratifs.
 
@@ -26,14 +29,17 @@ SUPMEAL est une application web de gestion de recettes et de planification de re
   OAuth2 sécurisée. Seuls les fournisseurs configurés sur votre déploiement apparaissent ; si aucun
   ne l'est, la section n'est pas affichée et seule la connexion par mot de passe est proposée.
 
-`[Capture : page de connexion avec les boutons OAuth2]`
-`[Capture : écran de consentement du fournisseur]`
+![Page de connexion de SUPMEAL avec les boutons Google et GitHub](captures/02-connexion-oauth.png)
+
+*Seuls les fournisseurs configurés sur le déploiement apparaissent : ici Google et GitHub le sont, Microsoft non.*
+
+![Formulaire d'inscription](captures/03-inscription.png)
 
 ---
 
 ## 2. Tableau de bord (Accueil)
 
-`[Capture : tableau de bord avec statistiques et menu du jour]`
+![Tableau de bord : statistiques, menu du jour et recettes récentes](captures/04-tableau-de-bord.png)
 
 Le tableau de bord affiche :
 - Un **message de bienvenue** avec la date du jour
@@ -48,7 +54,7 @@ Le tableau de bord affiche :
 
 ### Créer une recette
 
-`[Capture : formulaire de création, ingrédients et étapes]`
+![Formulaire de recette : informations, photo, ingrédients, étapes et tags](captures/08-formulaire-recette.png)
 
 1. Cliquez sur **"+ Nouvelle recette"** (barre de navigation ou page Recettes)
 2. Remplissez les champs :
@@ -70,6 +76,8 @@ Sur la page de détail d'une recette dont vous êtes l'auteur, cliquez sur **"�
 
 ### Mettre en favoris
 
+![Fiche recette : ingrédients, étapes, tags et commentaires](captures/07-fiche-recette.png)
+
 Cliquez sur l'icône ❤️ sur la carte ou la page de détail d'une recette.
 
 ### Planifier un repas
@@ -84,7 +92,11 @@ Les recettes appartenant à un cookbook partagé peuvent être commentées. Sais
 
 ## 4. Recherche et filtrage
 
-`[Capture : page Mes recettes, panneau de filtres déployé]`
+![Page Mes recettes et ses six critères de filtrage](captures/05-liste-recettes-filtres.png)
+
+La recherche ignore les accents et la casse : « creme » retrouve « Crème Brûlée ».
+
+![Recherche « creme » retournant Crème Brûlée](captures/06-recherche-sans-accents.png)
 
 La page **"Mes recettes"** propose des filtres puissants :
 
@@ -103,6 +115,8 @@ La page **"Mes recettes"** propose des filtres puissants :
 ## 5. Cookbooks partagés
 
 ### Créer un cookbook
+
+![Liste des cookbooks avec le rôle tenu dans chacun](captures/09-liste-cookbooks.png)
 
 1. Page **"Cookbooks"** → **"+ Créer un cookbook"**
 2. Donnez un nom et une description optionnelle
@@ -124,8 +138,11 @@ La page **"Mes recettes"** propose des filtres puissants :
 
 ### Onglets d'un cookbook
 
-`[Capture : onglet Chat d'un cookbook partagé]`
-`[Capture : onglet Membres avec les rôles]`
+![Onglet Recettes d'un cookbook partagé](captures/10-cookbook-recettes.png)
+
+![Onglet Membres, avec le rôle de chacun](captures/11-cookbook-membres.png)
+
+![Onglet Chat : messagerie instantanée du cookbook](captures/12-cookbook-chat.png)
 
 - **🍽 Recettes** : Toutes les recettes du groupe, avec barre de recherche dédiée
 - **👥 Membres** : Liste des membres et gestion des rôles (Créateur uniquement)
@@ -150,8 +167,9 @@ ou depuis une page de détail de recette : **"📅 Planifier"**
 
 ### Générer la liste de courses
 
-`[Capture : grille hebdomadaire du planning]`
-`[Capture : liste de courses agrégée]`
+![Grille hebdomadaire : sept jours par quatre types de repas](captures/13-planning-hebdomadaire.png)
+
+![Liste de courses agrégée depuis le planning](captures/14-liste-de-courses.png)
 
 Une fois votre planning créé, cliquez sur **"🛒 Liste de courses"** pour obtenir la liste agrégée de tous les ingrédients de la semaine, avec les quantités totales.
 
@@ -175,7 +193,11 @@ Page accessible via le menu utilisateur → **"Import / Export"**
    pas fait : le fichier produit contient toutes vos données **en clair**, sans chiffrement.
 3. Cliquez sur **« Exporter »** pour télécharger le fichier
 
-`[Capture : page Import / Export, avertissement coché]`
+![Page Import / Export avant reconnaissance de l'avertissement : l'export est inactif](captures/18-import-export.png)
+
+*Le bouton d'export reste inactif tant que l'avertissement n'est pas coché.*
+
+![Page Import / Export : l'avertissement reconnu débloque l'export](captures/19-export-avertissement-accepte.png)
 
 ### Importer
 
@@ -198,6 +220,8 @@ Page accessible via le menu utilisateur → **"Paramètres"**
 
 ### Profil
 
+![Onglet Profil des paramètres](captures/15-parametres-profil.png)
+
 Modifiez votre nom d'utilisateur.
 
 ### Mot de passe
@@ -205,6 +229,8 @@ Modifiez votre nom d'utilisateur.
 Changez votre mot de passe en renseignant l'ancien puis le nouveau.
 
 ### Préférences culinaires
+
+![Préférences culinaires : régime, allergies, cuisines, portions par défaut](captures/16-parametres-preferences.png)
 
 Définissez vos préférences pour personnaliser l'expérience :
 - **Régime alimentaire** : végétarien, vegan, sans gluten, etc.
@@ -218,7 +244,7 @@ Le régime alimentaire et les cuisines préférées sont pour l'instant purement
 
 ### Comptes liés (OAuth2)
 
-`[Capture : onglet Comptes liés, un fournisseur marqué « Lié »]`
+![Onglet Connexions des paramètres](captures/17-parametres-connexions.png)
 
 Associez ou dissociez des comptes Google, GitHub ou Microsoft à votre profil.
 
@@ -250,4 +276,15 @@ titre, la description, **les étapes**, les ingrédients et les tags.
 
 ### Page introuvable
 
+![Page 404](captures/20-page-404.png)
+
 Une adresse inconnue affiche une page 404 proposant un retour au tableau de bord ou à vos recettes.
+
+### Sur téléphone
+
+L'interface s'adapte aux petits écrans : la navigation passe en barre inférieure et la grille du
+planning défile horizontalement au lieu d'être rognée.
+
+![Tableau de bord sur téléphone](captures/21-mobile-tableau-de-bord.png)
+
+![Planning sur téléphone, grille défilante](captures/22-mobile-planning.png)

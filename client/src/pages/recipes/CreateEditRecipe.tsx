@@ -152,8 +152,8 @@ export default function CreateEditRecipe() {
           <Textarea label="Description" placeholder="Une brève description de la recette..." {...register('description')} />
 
           <FormControl fullWidth size="small">
-            <InputLabel>Assigner à un cookbook</InputLabel>
-            <Select native label="Assigner à un cookbook" value={cookbookId} onChange={(e) => setCookbookId(e.target.value as string)}>
+            <InputLabel shrink>Assigner à un cookbook</InputLabel>
+            <Select native notched label="Assigner à un cookbook" value={cookbookId} onChange={(e) => setCookbookId(e.target.value as string)}>
               <option value="">Recette personnelle</option>
               {cookbooks?.filter((cb) => cb.permissions.canEditRecipes).map((cb) => (
                 <option key={cb.id} value={cb.id}>{cb.name}</option>

@@ -357,8 +357,8 @@ function AddToPlanModal({ isOpen, onClose, recipeId, recipeTitle }: {
         <Typography variant="body2" color="text.secondary">Planifier : <strong>{recipeTitle}</strong></Typography>
 
         <FormControl fullWidth size="small">
-          <InputLabel>Planning</InputLabel>
-          <Select native label="Planning" {...register('planId')}>
+          <InputLabel shrink>Planning</InputLabel>
+          <Select native notched label="Planning" {...register('planId')}>
             <option value="">+ Nouveau planning</option>
             {plans?.map((p) => <option key={p.id} value={p.id}>{p.name || `Semaine du ${new Date(p.weekStart).toLocaleDateString('fr-FR')}`}</option>)}
           </Select>
@@ -367,8 +367,8 @@ function AddToPlanModal({ isOpen, onClose, recipeId, recipeTitle }: {
         <TextField label="Date" type="date" size="small" fullWidth InputLabelProps={{ shrink: true }} {...register('date', { required: true })} />
 
         <FormControl fullWidth size="small">
-          <InputLabel>Repas</InputLabel>
-          <Select native label="Repas" {...register('mealType')}>
+          <InputLabel shrink>Repas</InputLabel>
+          <Select native notched label="Repas" {...register('mealType')}>
             {Object.entries(MEAL_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
         </FormControl>

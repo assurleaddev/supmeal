@@ -165,6 +165,11 @@ export default function MealPlanner() {
           {/* Meal rows */}
           {MEAL_TYPES.map((mealType) => (
             <Box key={mealType} sx={{ borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}>
+              {/* Le libellé coiffe sa ligne. Rendu après les cellules, il paraissait désigner la
+                  ligne suivante et l'on ne savait plus quel repas on remplissait. */}
+              <Box sx={{ bgcolor: 'grey.50', px: 2, py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>{MEAL_ICONS[mealType]} {MEAL_LABELS[mealType]}</Typography>
+              </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
                 {weekDays.map((day) => {
                   const items = getItemsFor(day, mealType);
@@ -208,9 +213,6 @@ export default function MealPlanner() {
                     </Box>
                   );
                 })}
-              </Box>
-              <Box sx={{ bgcolor: 'grey.50', px: 2, py: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary">{MEAL_ICONS[mealType]} {MEAL_LABELS[mealType]}</Typography>
               </Box>
             </Box>
           ))}
