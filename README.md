@@ -70,7 +70,10 @@ vérifie l'absence de secret avant d'écrire.
 ## Documentation
 
 - [Documentation technique](docs/documentation-technique.md) — configuration, déploiement,
-  choix technologiques, diagrammes UML, schéma de base de données, sécurité.
+  choix technologiques, 10 diagrammes UML, modèles conceptuel/logique/physique, dictionnaire de
+  données, sécurité, référence de l'API et plan de tests.
+- [Schéma physique](docs/schema-physique.sql) — DDL PostgreSQL complète, générée depuis
+  `schema.prisma` : 17 tables, 36 index, 24 clés étrangères.
 - [Charte graphique](docs/charte-graphique.md) — identité visuelle, palette, typographie, règles de composants et d'accessibilité.
 - [Manuel utilisateur](docs/manuel-utilisateur.md) — prise en main et présentation des
   fonctionnalités.

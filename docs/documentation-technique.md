@@ -295,11 +295,15 @@ des éditeurs Markdown, et restent versionnables au même titre que le code.
 
 ### 4.1 Diagramme de cas d'utilisation
 
+Les numéros servent de référence dans le reste du document ; le rôle minimal exigé est indiqué
+lorsqu'il est supérieur à la simple adhésion.
+
 ```mermaid
 graph LR
     subgraph Acteurs
         V((Visiteur))
         U((Utilisateur))
+        E((Membre<br/>éditeur))
         C((Créateur<br/>de cookbook))
         P((Fournisseur<br/>OAuth2))
     end
@@ -310,41 +314,51 @@ graph LR
         UC3[Se connecter via OAuth2]
         UC4[Changer son mot de passe]
         UC5[Lier un compte OAuth2]
-        UC6[Définir ses préférences culinaires]
+        UC6[Délier un compte OAuth2]
+        UC7[Modifier son profil]
+        UC8[Définir ses préférences culinaires]
+        UC9[Consulter ses statistiques]
     end
 
     subgraph "Recettes"
-        UC7[Créer une recette]
-        UC8[Modifier / supprimer une recette]
-        UC9[Rechercher et filtrer]
-        UC10[Marquer comme favorite]
-        UC11[Téléverser une photo]
+        UC10[Créer une recette]
+        UC11[Modifier / supprimer une recette]
+        UC12[Rechercher et filtrer]
+        UC13[Marquer comme favorite]
+        UC14[Téléverser une photo]
+        UC15[Enrichir le catalogue de tags]
     end
 
     subgraph "Cookbooks partagés"
-        UC12[Créer un cookbook]
-        UC13[Inviter un membre]
-        UC14[Rejoindre via invitation]
-        UC15[Attribuer un rôle]
-        UC16[Commenter une recette]
-        UC17[Discuter en temps réel]
-        UC18[Quitter le cookbook]
+        UC16[Créer un cookbook]
+        UC17[Rejoindre via invitation]
+        UC18[Commenter une recette]
+        UC19[Discuter en temps réel]
+        UC20[Quitter le cookbook]
+        UC21[Modifier le cookbook<br/>ou sa couverture]
+        UC22[Inviter un membre]
+        UC23[Attribuer un rôle]
+        UC24[Retirer un membre]
+        UC25[Supprimer le cookbook]
     end
 
     subgraph "Planification"
-        UC19[Planifier un repas]
-        UC20[Générer la liste de courses]
+        UC26[Planifier un repas personnel]
+        UC27[Planifier les repas<br/>d'un cookbook]
+        UC28[Obtenir des suggestions<br/>de recettes]
+        UC29[Générer la liste de courses]
     end
 
     subgraph "Portabilité"
-        UC21[Exporter ses données]
-        UC22[Importer un fichier]
+        UC30[Exporter ses données]
+        UC31[Importer un fichier]
     end
 
     V --> UC1
     V --> UC2
     V --> UC3
     UC3 -.-> P
+    UC5 -.-> P
 
     U --> UC2
     U --> UC4
@@ -356,22 +370,47 @@ graph LR
     U --> UC10
     U --> UC11
     U --> UC12
+    U --> UC13
     U --> UC14
+    U --> UC15
     U --> UC16
     U --> UC17
     U --> UC18
     U --> UC19
     U --> UC20
-    U --> UC21
-    U --> UC22
+    U --> UC26
+    U --> UC28
+    U --> UC29
+    U --> UC30
+    U --> UC31
 
-    C --> UC13
-    C --> UC15
+    E --> UC21
+    E --> UC27
+
+    C --> UC22
+    C --> UC23
+    C --> UC24
+    C --> UC25
+
+    E -.->|est un| U
+    C -.->|est un| E
 ```
 
-Le **Créateur de cookbook** est une spécialisation de l'**Utilisateur** : il en possède tous les cas
-d'utilisation, et seul lui peut gérer les membres. Les rôles `EDITOR`, `COMMENTER` et `READER`
-restreignent progressivement l'accès (voir §4.5).
+Le **Membre éditeur** et le **Créateur de cookbook** sont des spécialisations de l'**Utilisateur** :
+ils héritent de ses cas d'utilisation, à **une exception près** — le créateur ne peut pas quitter son
+cookbook (UC20). Le rôle `CREATOR` naît avec le cookbook et ne s'attribue pas
+(`ASSIGNABLE_ROLES` exclut `CREATOR`, `server/src/services/cookbookService.ts`) : il n'existe donc
+aucun transfert de propriété, et la seule sortie du créateur est UC25 — supprimer le cookbook.
+
+La hiérarchie complète des rôles est `READER` < `COMMENTER` < `EDITOR` < `CREATOR`. Le seuil de
+chaque action figure dans la matrice des droits du §7.5 ; le §4.5 illustre son application au fil
+d'un échange temps réel.
+
+Deux cas d'utilisation ne sont pas de simples lectures et méritent d'être situés :
+
+- **UC27** — un planning rattaché à un cookbook est visible de tous ses membres, mais seuls
+  `CREATOR` et `EDITOR` peuvent le remanier (`PLAN_WRITE_ROLES`, §7.7).
+- **UC28** — les suggestions classées pour un créneau donné, détaillées au §10.
 
 ### 4.2 Diagramme de classes — modèle de données
 
@@ -425,6 +464,7 @@ classDiagram
         +CookbookRole role
         +DateTime expiresAt
         +DateTime~nullable~ usedAt
+        +DateTime createdAt
     }
 
     class Recipe {
@@ -544,9 +584,9 @@ classDiagram
 
     Cookbook "1" --> "1..*" CookbookMember
     Cookbook "1" --> "0..*" CookbookInvite
-    Cookbook "1" --> "0..*" Recipe
+    Cookbook "0..1" --> "0..*" Recipe
     Cookbook "1" --> "0..*" Message
-    Cookbook "1" --> "0..*" MealPlan
+    Cookbook "0..1" --> "0..*" MealPlan
 
     Recipe "1" --> "1..*" RecipeIngredient
     Recipe "1" --> "1..*" RecipeStep
@@ -565,9 +605,21 @@ classDiagram
     MealPlanItem ..> MealType
 ```
 
-`RecipeIngredient`, `RecipeTag` et `CookbookMember` sont des **classes-association** : elles portent
-des attributs propres à la relation (quantité et unité pour un ingrédient, rôle pour un membre) et ne
-peuvent donc pas être réduites à une simple table de jonction.
+`RecipeIngredient` et `CookbookMember` sont des **classes-association** : elles portent des
+attributs propres à la relation — quantité, unité, notes et rang pour un ingrédient, rôle et date
+d'adhésion pour un membre — et ne peuvent donc pas être réduites à une table de jonction.
+
+`RecipeTag` et `Favorite` sont, elles, de **vraies tables de jonction** : elles n'ont pour colonnes
+que les deux clés étrangères qui forment leur clé primaire composite. La distinction n'est pas
+cosmétique : une classe-association peut gagner des attributs, une table de jonction ne le peut pas
+sans changer de nature.
+
+Deux associations sont **optionnelles côté cookbook** — `Recipe` et `MealPlan`. C'est le cas nominal
+du produit : une recette sans cookbook est une recette personnelle (`isPersonal` en est dérivé), et un
+planning sans cookbook n'appartient qu'à son auteur. D'où la cardinalité `0..1` et non `1`.
+
+Le modèle objet du projet **est** son modèle de données : la couche applicative est fonctionnelle et
+n'expose qu'une seule classe (`AppError`). Son découpage se lit au §4.6, pas ici.
 
 ### 4.3 Diagramme de séquence — connexion et rafraîchissement de jeton
 
@@ -583,7 +635,7 @@ sequenceDiagram
     A->>D: SELECT user WHERE email
     D-->>A: utilisateur + condensat
     A->>A: bcrypt.compare (coût 12)
-    A-->>U: accessToken (15 min) + refreshToken (7 j)
+    A-->>U: profil utilisateur + accessToken (15 min) + refreshToken (7 j)
 
     Note over U: Les jetons sont conservés<br/>par le store d'authentification
 
@@ -598,14 +650,28 @@ sequenceDiagram
     U->>A: GET /api/recipes (jeton expiré)
     A-->>U: 401
     U->>A: POST /api/auth/refresh (refreshToken)
-    A->>D: SELECT user WHERE id
-    A-->>U: nouveaux jetons
-    U->>A: rejoue la requête initiale
-    A-->>U: 200 + recettes
+    A->>A: jwt.verify (JWT_REFRESH_SECRET — secret distinct)
+
+    alt refresh valide
+        A->>D: SELECT user WHERE id
+        A-->>U: nouveaux jetons
+        U->>A: rejoue la requête initiale
+        A-->>U: 200 + recettes
+    else refresh refusé (401)
+        A-->>U: 401 Invalid or expired refresh token
+        U->>U: logout() du store + redirection /login
+        Note over U: les requêtes en attente<br/>sont rejetées
+    end
 ```
 
 L'intercepteur HTTP du client sérialise les rafraîchissements : les requêtes concurrentes qui
 échouent en `401` attendent le nouveau jeton au lieu de déclencher chacune sa propre rotation.
+
+Deux points que le diagramme rend visibles et qui ont leur importance. Le jeton de rafraîchissement
+est **vérifié avec un secret distinct** de celui des jetons d'accès : compromettre l'un ne suffit pas
+à forger l'autre. Et il n'est **pas** transporté par cookie `httpOnly` mais dans le corps des
+requêtes, conservé par le store côté client — choix qui simplifie le CSRF au prix d'une exposition
+au XSS, assumé ici et discuté au §6.
 
 ### 4.4 Diagramme de séquence — rattachement d'un fournisseur OAuth2
 
@@ -619,19 +685,24 @@ sequenceDiagram
 
     U->>C: Paramètres → « Lier »
     C->>A: POST /api/auth/link/:provider (Bearer)
-    A->>A: signe un state (JWT, 10 min, sub = userId)
-    A-->>C: URL d'autorisation + state
-    C->>P: redirection
+    A->>A: signe un state (JWT, 10 min, sub = userId, purpose = oauth-link)
+    A-->>C: { url: OAUTH_CALLBACK_BASE/api/auth/:provider?state=… }
+    C->>A: GET /api/auth/:provider?state=… (window.location)
+    A->>P: redirection vers l'autorisation (Passport : scope + state)
 
     U->>P: consentement
     P-->>A: GET /api/auth/:provider/callback (code, state)
     A->>P: échange code → jeton d'accès
     P-->>A: jeton + profil
     A->>A: vérifie le state → identifie le compte cible
+    A->>D: SELECT OAuthAccount WHERE (provider, providerId)
 
     alt identité déjà liée à un autre compte
         A-->>C: redirection /login?error=oauth&reason=…
-    else
+    else identité déjà liée à ce compte
+        A->>D: UPDATE jetons du fournisseur
+        A-->>C: redirection /oauth/callback + jetons
+    else identité inconnue
         A->>D: INSERT OAuthAccount (userId du state)
         A-->>C: redirection /oauth/callback + jetons
     end
@@ -640,11 +711,18 @@ sequenceDiagram
 Le `state` est ce qui distingue un **rattachement** d'une **connexion** : sans lui, le callback ne
 peut que rapprocher les comptes par adresse e-mail, et crée un second compte lorsqu'elles diffèrent.
 
+L'URL renvoyée par `POST /api/auth/link/:provider` **n'est pas celle du fournisseur** mais celle de
+l'API elle-même. Ce détour est ce qui permet à Passport de composer la requête d'autorisation
+(`scope`, `state`) sans que le client ait à connaître les paramètres propres à chaque fournisseur.
+
+Le rattachement est **idempotent** : relier deux fois la même identité au même compte met les jetons
+à jour sans créer de seconde ligne, la contrainte unique `(provider, providerId)` l'interdisant.
+
 ### 4.5 Diagramme de séquence — messagerie temps réel et permissions
 
 ```mermaid
 sequenceDiagram
-    actor A as Membre A (EDITOR)
+    actor A as Membre A (COMMENTER)
     actor B as Membre B (READER)
     participant S as Socket.io
     participant D as PostgreSQL
@@ -657,25 +735,48 @@ sequenceDiagram
 
     A->>S: cookbook:join(cookbookId)
     S->>D: SELECT CookbookMember
-    D-->>S: rôle EDITOR
-    S->>S: join room cookbook:<id>
+
+    alt membre du cookbook
+        D-->>S: rôle COMMENTER
+        S->>S: join room cookbook:<id>
+    else non membre
+        S-->>A: error « Not a member of this cookbook »
+        Note over S: pas de join : aucun message<br/>ne sera reçu ensuite
+    end
 
     B->>S: cookbook:join(cookbookId)
     S->>D: SELECT CookbookMember
     D-->>S: rôle READER
     S->>S: join room cookbook:<id>
+    S-->>A: cookbook:joined { userId, username }
 
     A->>S: cookbook:sendMessage
-    S->>D: SELECT CookbookMember → EDITOR
+    S->>D: SELECT CookbookMember → rôle ≥ COMMENTER (autorisé)
     S->>D: INSERT Message
     S-->>A: cookbook:message (diffusion à la room)
     S-->>B: cookbook:message
 
     B->>S: cookbook:sendMessage
-    S->>D: SELECT CookbookMember → READER
+    S->>D: SELECT CookbookMember → READER (refusé)
     S-->>B: error « Insufficient permissions »
-    Note over S,D: Rien n'est écrit,<br/>rien n'est diffusé
+    Note over S,D: Rien n'est écrit, rien n'est diffusé.<br/>Aucun client n'écoute `error` : pas de retour visuel
+
+    B->>S: cookbook:leave(cookbookId)
+    S-->>A: cookbook:left { userId }
 ```
+
+Le seuil d'écriture est `COMMENTER`, **pas** `EDITOR` : le gestionnaire ne refuse que le rôle
+`READER`. C'est pourquoi le membre A du scénario est un simple `COMMENTER` — le montrer avec un
+`EDITOR` laisserait croire à un seuil plus haut qu'il ne l'est.
+
+L'appartenance est vérifiée **deux fois**, au `cookbook:join` puis à chaque `cookbook:sendMessage`.
+La redondance est voulue : un rôle peut être abaissé pendant que la connexion reste ouverte, et seule
+la seconde vérification le voit.
+
+Une honnêteté sur l'état actuel : l'événement `error` est bien émis par le serveur, mais **aucun
+client ne s'y abonne**. Le refus n'atteint donc pas l'écran. En pratique l'interface désactive déjà
+la zone de saisie quand `canChat` est faux, si bien que ce chemin n'est atteignable qu'en
+contournant l'interface — la sécurité tient, le retour visuel manque.
 
 ### 4.6 Diagramme de composants et de déploiement
 
@@ -687,7 +788,7 @@ graph TB
 
     subgraph "Hôte Docker"
         subgraph "conteneur client"
-            NG["nginx<br/>:80"]
+            NG["nginx<br/>:80 (publié en 8080)"]
             ST["Fichiers statiques<br/>(build Vite)"]
         end
 
@@ -701,7 +802,7 @@ graph TB
         end
 
         subgraph "conteneur postgres"
-            DB[("PostgreSQL 16<br/>:5432")]
+            DB[("PostgreSQL 16<br/>:5432 (publié)")]
         end
 
         VU[("volume<br/>uploads_data")]
@@ -710,7 +811,7 @@ graph TB
 
     EXT["Fournisseurs OAuth2<br/>Google · GitHub · Microsoft"]
 
-    SPA -->|HTTPS| NG
+    SPA -->|"HTTP — 8080 (hôte) → 80"| NG
     NG --> ST
     NG -->|"/api/ → proxy"| EX
     NG -->|"/uploads/ → proxy"| EX
@@ -726,41 +827,166 @@ graph TB
     EX --> VU
     DB --> VD
     EX -.->|échange de jeton| EXT
+
+    EX -.->|"depends_on: service_healthy"| DB
+    NG -.->|depends_on| EX
 ```
 
-Les trois briques du §2.3.1 correspondent aux trois conteneurs. Le navigateur ne joint jamais l'API
-directement : nginx relaie `/api/`, `/uploads/` et `/socket.io/`, ce qui évite toute configuration
-CORS côté client. Le port `3000` reste néanmoins publié pour les callbacks OAuth2 et le débogage.
+Les trois briques du §3 — backend, frontend, base de données — correspondent aux trois conteneurs.
+Le navigateur ne joint jamais l'API directement : nginx relaie `/api/`, `/uploads/` et `/socket.io/`,
+ce qui évite toute configuration CORS côté client.
+
+**Ports publiés sur l'hôte.** Le client est exposé en `8080→80` : le port `80` du schéma n'est
+joignable que depuis le réseau Docker, et c'est bien `http://localhost:8080` qu'il faut ouvrir. L'API
+(`3000`) et PostgreSQL (`5432`) sont également publiés — le premier pour les callbacks OAuth2 et le
+débogage, le second pour l'inspection de la base.
+
+**Aucun TLS dans cette pile.** L'arête d'entrée est en clair : nginx n'écoute que sur `:80`, sans
+`ssl_certificate` ni `listen 443`. Une mise en production exigerait un terminateur TLS en amont ;
+l'écrire ici serait plus honnête que de dessiner un HTTPS que le dépôt n'implémente pas.
+
+**Ordonnancement du démarrage.** Les deux arêtes pointillées ne sont pas symétriques : `server`
+attend que la sonde `pg_isready` de `postgres` soit saine (`condition: service_healthy`), tandis que
+`client` se contente du démarrage du conteneur `server`, sans attendre son `healthcheck`. nginx peut
+donc accepter des connexions quelques secondes avant que l'API ne réponde.
 
 ### 4.7 Diagramme d'activité — création d'une recette
 
 ```mermaid
 flowchart TD
     A([Utilisateur clique « Nouvelle recette »]) --> B[Saisie du formulaire]
-    B --> C{Cookbook sélectionné ?}
+    B --> B1{"Champs requis remplis ?<br/>react-hook-form, côté client"}
+    B1 -->|Non| B2["Erreurs sous les champs<br/>aucune requête envoyée"]
+    B1 -->|Oui| C{Cookbook sélectionné ?}
     C -->|Non| D["POST /api/recipes<br/>cookbookId absent"]
     C -->|Oui| E["POST /api/recipes<br/>cookbookId fourni"]
 
-    E --> F{"Rôle ≥ EDITOR<br/>dans ce cookbook ?"}
-    F -->|Non| G[403 Insufficient permissions]
-    F -->|Oui| H
-
-    D --> H["Validation Zod<br/>chaînes vides et NaN → null"]
+    D --> H
+    E --> H["Validation Zod du corps entier<br/>chaînes vides et NaN → null"]
     H --> I{Entrées valides ?}
     I -->|Non| J[400 + erreurs par champ]
-    I -->|Oui| K["Canonicalisation<br/>upsert ingrédients et tags"]
-    K --> L["isPersonal dérivé de cookbookId"]
+    I -->|Oui| F{cookbookId fourni ?}
+    F -->|Non| K
+    F -->|Oui| F2{"Rôle CREATOR ou EDITOR<br/>dans ce cookbook ?"}
+    F2 -->|Non| G[403 Insufficient permissions]
+    F2 -->|Oui| K
+
+    K["Canonicalisation<br/>upsert ingrédients et tags"]
+    K --> K2["portions ?? defaultPortions<br/>des préférences ?? 4"]
+    K2 --> L["isPersonal = !cookbookId"]
     L --> M[INSERT Recipe + relations]
-    M --> N{Photo fournie ?}
+    M --> Q([201 Created, recette renvoyée])
+    Q --> N{Photo fournie ?}
+    N -->|Non| P([Redirection vers /recipes/:id])
     N -->|Oui| O["POST /api/recipes/:id/image<br/>UUID + volume dédié"]
-    N -->|Non| P
-    O --> P([201 → redirection vers la fiche])
+    O --> O1{"Upload accepté ?<br/>type image et taille ≤ 5 Mo"}
+    O1 -->|Oui| P
+    O1 -->|Non| O2["Recette créée sans photo<br/>message d'erreur, pas de redirection"]
 ```
 
+Trois points où ce diagramme corrige une intuition courante.
+
+**La validation précède le contrôle de rôle.** La route parse le corps avec Zod, puis seulement
+ensuite le service vérifie l'appartenance au cookbook. Un membre `READER` qui envoie un corps
+invalide reçoit donc un `400`, pas le `403` auquel on s'attendrait — l'ordre inverse serait
+défendable, mais c'est celui-ci qui est implémenté.
+
+**Le `201` n'attend pas la photo.** L'image part dans un **second** appel, et c'est l'identifiant
+renvoyé par le `201` qui le rend possible. La recette existe donc avant la photo, ce qui explique
+l'état final `O2` : un upload refusé laisse une recette bien créée, sans image, l'utilisateur
+restant sur le formulaire.
+
+**Le formulaire filtre en amont.** Titre, portions, nom de chaque ingrédient et description de chaque
+étape sont requis côté client : tant qu'un champ manque, aucune requête n'est émise. La validation
+serveur n'en est pas moins complète — elle ne délègue rien au client, elle évite seulement un
+aller-retour.
+
+### 4.8 Diagramme d'états-transitions — invitation et adhésion
+
+`CookbookInvite` est la seule entité du modèle à porter un **état persisté**, déduit de deux colonnes :
+`usedAt` et `expiresAt`. Ses règles étaient jusqu'ici dispersées entre le code et la référence d'API ;
+les voici en un seul endroit.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    state "Émise" as EMISE
+    state "Expirée" as EXPIREE
+    state "Utilisée" as UTILISEE
+    state "Refus non terminaux" as REFUS {
+        direction TB
+        state "Jeton inconnu — 404" as R1
+        state "Déjà utilisée — 400" as R2
+        state "Adresse différente — 403" as R3
+        state "Déjà membre — 409" as R4
+    }
+
+    [*] --> EMISE : POST /:id/invite<br/>expiresAt = +7 jours
+
+    EMISE --> REFUS : POST /join/:token<br/>une condition échoue
+    REFUS --> EMISE : l'invitation reste utilisable
+
+    EMISE --> EXPIREE : expiresAt dépassée
+    EMISE --> UTILISEE : toutes les conditions réunies<br/>usedAt = maintenant
+
+    EXPIREE --> [*]
+    UTILISEE --> [*]
+```
+
+Le passage à `Utilisée` et la création du membre ont lieu dans **une seule transaction** : une
+invitation ne peut donc pas être consommée sans que l'adhésion existe, ni l'inverse.
+
+L'ordre des quatre refus n'est pas indifférent — il va du moins au plus informatif. Le contrôle
+d'adresse (`403`) est ce qui rend l'invitation **nominative** : sans lui, le jeton serait un simple
+porteur et quiconque l'intercepterait pourrait rejoindre le cookbook.
+
+Aucun de ces quatre refus ne consomme l'invitation : l'état reste `Émise`, et un utilisateur qui
+s'est trompé de compte peut réessayer avec le bon. Il n'existe en revanche **aucune révocation** :
+une invitation émise ne peut pas être annulée avant son échéance, limite assumée que borne la durée
+de vie de 7 jours.
+
+L'adhésion qui en résulte a son propre cycle, plus simple :
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> READER : invitation acceptée<br/>(rôle porté par l'invitation)
+    [*] --> CREATOR : création du cookbook
+
+    READER --> COMMENTER : PATCH /members/:userId
+    COMMENTER --> READER : PATCH /members/:userId
+    COMMENTER --> EDITOR : PATCH /members/:userId
+    EDITOR --> COMMENTER : PATCH /members/:userId
+    READER --> EDITOR : PATCH /members/:userId
+    EDITOR --> READER : PATCH /members/:userId
+
+    READER --> [*] : départ ou retrait
+    COMMENTER --> [*] : départ ou retrait
+    EDITOR --> [*] : départ ou retrait
+    CREATOR --> [*] : suppression du cookbook
+
+    note right of CREATOR
+        Toutes les transitions de rôle
+        sont réservées au CREATOR,
+        qui affecte librement l'un des
+        trois rôles assignables.
+    end note
+```
+
+`CREATOR` est **hors du graphe des transitions** : il naît avec le cookbook et `ASSIGNABLE_ROLES` ne
+le contient pas. Il n'y a donc ni promotion vers `CREATOR`, ni transfert de propriété — et par
+conséquent aucune sortie possible pour le créateur sauf supprimer le cookbook. Un cookbook conserve
+ainsi toujours au moins un membre, ce qui justifie la cardinalité `1..N` du §5.2.
+
+Le créateur ne peut pas non plus changer **son propre** rôle, ni se retirer lui-même de la liste des
+membres : les deux gardes existent pour éviter un cookbook orphelin.
+
+---
 ---
 ## 5. Schéma de la base de données
 
-### 5.1 Modèle conceptuel (entités–associations)
+### 5.1 Modèle logique (entités–associations)
 
 Aucune directive `@@map` n'est utilisée dans `schema.prisma` : **les tables portent exactement le nom
 des modèles Prisma**, en PascalCase, et doivent donc être citées entre guillemets en SQL
@@ -781,9 +1007,9 @@ erDiagram
 
     Cookbook ||--|{ CookbookMember : "regroupe"
     Cookbook ||--o{ CookbookInvite : "propose"
-    Cookbook ||--o{ Recipe : "contient"
+    Cookbook |o--o{ Recipe : "contient"
     Cookbook ||--o{ Message : "héberge"
-    Cookbook ||--o{ MealPlan : "partage"
+    Cookbook |o--o{ MealPlan : "partage"
 
     Recipe ||--|{ RecipeIngredient : "compose"
     Recipe ||--|{ RecipeStep : "détaille"
@@ -947,6 +1173,51 @@ erDiagram
     }
 ```
 
+#### Les trois niveaux, et où les lire
+
+La dénomination compte pour qui lit ce document avec une grille Mérise, car les trois niveaux sont
+bien présents mais répartis sur deux chapitres :
+
+| Niveau | Où | Ce qui le caractérise ici |
+|---|---|---|
+| **Conceptuel** (MCD) | §4.2, diagramme de classes | Entités et associations **sans clé étrangère** ; `RecipeIngredient` et `CookbookMember` y sont des classes-association |
+| **Logique** (MLD) | §5.1, ci-dessus | Les clés étrangères apparaissent, les associations porteuses sont devenues des tables, les clés primaires composites sont explicites |
+| **Physique** (MPD) | §5.6 et `docs/schema-physique.sql` | Types PostgreSQL, index, actions référentielles |
+
+Le diagramme du §5.1 montre `String userId FK` et la clé primaire composite de `RecipeTag` : au sens
+strict, il s'agit donc d'un **MLD**, pas d'un MCD — un modèle conceptuel ne connaît pas les clés
+étrangères. Le niveau conceptuel est tenu par le §4.2, où les associations sont nommées plutôt que
+réifiées.
+
+#### Notation relationnelle
+
+Le même MLD en notation textuelle, pour la lecture rapide : clé primaire <u>soulignée</u>, clé
+étrangère préfixée de `#`, attribut facultatif suivi de `*`.
+
+- `User`(<u>id</u>, email, username, passwordHash *, avatar *, createdAt, updatedAt)
+- `OAuthAccount`(<u>id</u>, #userId, provider, providerId, accessToken *, refreshToken *)
+- `UserPreferences`(<u>id</u>, #userId, diet, allergies, cuisineTypes, defaultPortions)
+- `Cookbook`(<u>id</u>, name, description *, coverImage *, #createdById, createdAt, updatedAt)
+- `CookbookMember`(<u>id</u>, #cookbookId, #userId, role, joinedAt)
+- `CookbookInvite`(<u>id</u>, #cookbookId, email, token, role, #invitedById, expiresAt, usedAt *, createdAt)
+- `Recipe`(<u>id</u>, title, description *, prepTime *, cookTime *, portions, sourceUrl *, imageUrl *, isPersonal, #createdById, #cookbookId *, createdAt, updatedAt)
+- `Ingredient`(<u>id</u>, name)
+- `RecipeIngredient`(<u>id</u>, #recipeId, #ingredientId, quantity *, unit *, notes *, orderIndex)
+- `RecipeStep`(<u>id</u>, #recipeId, orderIndex, description, duration *)
+- `Tag`(<u>id</u>, name, type)
+- `RecipeTag`(<u>#recipeId, #tagId</u>)
+- `Favorite`(<u>#userId, #recipeId</u>, createdAt)
+- `MealPlan`(<u>id</u>, #userId, #cookbookId *, name *, weekStart, createdAt, updatedAt)
+- `MealPlanItem`(<u>id</u>, #mealPlanId, #recipeId, date, mealType, portions *)
+- `Comment`(<u>id</u>, #recipeId, #userId, content, createdAt, updatedAt)
+- `Message`(<u>id</u>, #cookbookId, #userId, content, createdAt)
+
+Deux relations se distinguent : `RecipeTag` et `Favorite` n'ont **que** leur clé primaire composite
+(plus une date pour la seconde), ce qui les identifie comme tables de jonction pures ; `Recipe` et
+`MealPlan` portent une clé étrangère `#cookbookId *` **facultative**, qui est exactement ce qui
+distingue le personnel du partagé.
+
+
 ### 5.2 Cardinalités et règles structurantes
 
 | Association | Cardinalité | Justification |
@@ -1002,6 +1273,79 @@ Ces objets sortent du périmètre de `prisma db push`, qui ne sait déclarer ni 
 fonctionnel. Si les extensions ne peuvent pas être créées — base managée sans droits
 superutilisateur — le serveur émet un avertissement et la recherche retombe sur `ILIKE`, sensible
 aux accents et non indexée, sans que l'application cesse de fonctionner.
+
+### 5.6 Modèle physique (MPD)
+
+Le modèle physique complet est un livrable à part : **[`docs/schema-physique.sql`](schema-physique.sql)**
+— 17 `CREATE TABLE`, 3 `CREATE TYPE` (énumérations natives), 36 index et 24 contraintes de clé
+étrangère avec leurs actions référentielles.
+
+Il est **généré**, jamais édité à la main, ce qui garantit qu'il ne peut pas dériver du schéma :
+
+```bash
+cd server
+npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > ../docs/schema-physique.sql
+# puis remettre en tête du fichier le bloc de commentaires qui explique sa nature
+```
+
+Correspondance des types, du niveau logique au niveau physique :
+
+| Prisma | PostgreSQL 16 | Remarque |
+|---|---|---|
+| `String` `@id @default(cuid())` | `TEXT`, `PRIMARY KEY` | identifiant applicatif, pas de `SERIAL` : genérable côté client, non énumérable |
+| `String` | `TEXT` | **sans borne** — les longueurs maximales sont applicatives, voir §5.7 |
+| `String?` | `TEXT` (nullable) | |
+| `String[]` | `TEXT[]` | tableau natif : `diet`, `allergies`, `cuisineTypes` |
+| `Int` | `INTEGER` | |
+| `Float` | `DOUBLE PRECISION` | `RecipeIngredient.quantity` |
+| `Boolean` | `BOOLEAN` | |
+| `DateTime` | `TIMESTAMP(3)` | précision milliseconde |
+| `DateTime @db.Date` | `DATE` | `MealPlan.weekStart`, `MealPlanItem.date` — pas d'heure, donc pas de piège de fuseau |
+| `enum` | `CREATE TYPE … AS ENUM` | `CookbookRole`, `TagType`, `MealType` — contrainte tenue par la base |
+| `@@id([a, b])` | `PRIMARY KEY (a, b)` | `RecipeTag`, `Favorite` |
+
+Deux précisions qui évitent un contresens à la lecture du fichier. Il n'existe **aucun dossier de
+migrations** : le schéma est appliqué au démarrage par `prisma db push`, et ce SQL est une
+**photographie** de l'état cible, pas un script à rejouer. Et il ne contient ni les extensions
+`unaccent`/`pg_trgm`, ni la fonction `supmeal_normalize()`, ni les index GIN de recherche : ceux-là
+ne dérivent pas du schéma Prisma et sont créés par `server/src/config/searchIndex.ts` (§5.5).
+
+### 5.7 Dictionnaire de données — contraintes de saisie
+
+Le §5.6 le montre : **aucune longueur n'est imposée par la base**, toutes les chaînes sont des
+`TEXT`. Les bornes ci-dessous sont donc tenues entièrement par les schémas Zod, à la frontière HTTP.
+Les connaître évite de prendre un `400` pour un bogue.
+
+| Entité | Champ | Contrainte | Source |
+|---|---|---|---|
+| `User` | `email` | format e-mail, unique | `authService.ts` |
+| `User` | `username` | 3 – 30, `^[a-zA-Z0-9_]+$`, unique | `authService.ts`, `userService.ts` |
+| `User` | mot de passe | 8 – 100 à l'inscription et au changement | `authService.ts`, `userService.ts` |
+| `UserPreferences` | `defaultPortions` | entier 1 – 100 | `userService.ts` |
+| `Recipe` | `title` | 1 – 200, requis | `recipeService.ts` |
+| `Recipe` | `description` | ≤ 2000, optionnel | `recipeService.ts` |
+| `Recipe` | `portions` | entier 1 – 1000 ; défaut = préférences, sinon 4 | `recipeService.ts` |
+| `Recipe` | `prepTime`, `cookTime` | entier positif, optionnels | `recipeService.ts` |
+| `Recipe` | `sourceUrl` | URL valide, optionnel | `recipeService.ts` |
+| `Recipe` | ingrédients, étapes | **au moins un de chaque** | `recipeService.ts` |
+| `Ingredient` | `name` | 1 – 100 | `recipeService.ts` |
+| `RecipeIngredient` | `unit` / `notes` | ≤ 50 / ≤ 200, optionnels | `recipeService.ts` |
+| `RecipeStep` | `description` | requise, non vide | `recipeService.ts` |
+| `Tag` | `name` | 1 – 50, unique après canonicalisation | `catalogService.ts` |
+| `Cookbook` | `name` | 1 – 100 | `cookbookService.ts` |
+| `Cookbook` | `description` | ≤ 500, optionnelle | `cookbookService.ts` |
+| `CookbookInvite` | `email` | format e-mail | `cookbookService.ts` |
+| `Comment` | `content` | 1 – 2000 | `recipeService.ts` |
+| `MealPlan` | `name` | ≤ 100, optionnel | `mealPlanService.ts` |
+| `MealPlanItem` | `date` | `YYYY-MM-DD` strict | `mealPlanService.ts` |
+| `MealPlanItem` | `portions` | entier ≥ 1, optionnel | `mealPlanService.ts` |
+| — | image de recette | `.jpg .jpeg .png .webp .gif`, ≤ 5 Mo | `middleware/upload.ts` |
+| — | pagination | `page` ≥ 1 ; `limit` 1 – 50 (défaut 20) | `recipeService.ts` |
+| — | semaine de planning | `offset` −520 – +520 (± 10 ans) | `mealPlanService.ts` |
+
+Une chaîne vide n'est pas un refus : les champs optionnels du formulaire arrivent à `''` ou `NaN` et
+sont ramenés à `null` avant validation. C'est délibéré — sans cette étape, remplir une recette sans
+temps de cuisson échouait.
 
 ---
 ## 6. Sécurité
@@ -1140,7 +1484,7 @@ avertissement affiché, jamais un blocage. `diet` et `cuisineTypes` restent déc
 | `POST` | `/:id/image` | Téléversement `multipart/form-data`, champ `image`. Extensions autorisées, 5 Mo maximum. |
 | `POST` | `/:id/favorite` | Marque comme favorite. |
 | `DELETE` | `/:id/favorite` | Retire des favoris. |
-| `GET` | `/suggestions` | Suggestions classées pour un créneau (§9). Paramètres : `date?`, `mealType?`, `limit?` (≤ 10). |
+| `GET` | `/suggestions` | Suggestions classées pour un créneau (§10). Paramètres : `date?`, `mealType?`, `limit?` (≤ 10). |
 | `GET` | `/:id/comments` | Commentaires. Réservé aux personnes ayant accès à la recette. |
 | `POST` | `/:id/comments` | Ajoute un commentaire (≤ 2000 caractères). Refusé au rôle `READER`. |
 | `DELETE` | `/:recipeId/comments/:commentId` | Supprime son propre commentaire. |
@@ -1150,7 +1494,7 @@ avertissement affiché, jamais un blocage. `diet` et `cuisineTypes` restent déc
 | Paramètre | Type | Effet |
 |---|---|---|
 | `q` | texte | Recherche plein texte sur titre, description, **étapes**, ingrédients et tags. Insensible à la casse **et aux accents**. |
-| `cookbookId` | id | Restreint à un cookbook — c'est la barre de recherche propre au cookbook (§2.2.2). |
+| `cookbookId` | id | Restreint à un cookbook — c'est la barre de recherche propre au cookbook (§2.2.2 du cahier des charges). |
 | `tags` | liste séparée par virgules | Recettes portant l'un des tags. |
 | `ingredients` | liste séparée par virgules | Correspondance partielle, insensible à la casse. |
 | `maxPrepTime` | entier | `prepTime ≤ valeur`. |
@@ -1187,8 +1531,15 @@ cookbook n'est visible que par les membres de ce cookbook.
 | Lire le chat | ✔ | ✔ | ✔ | ✔ |
 | Commenter / écrire dans le chat | ✔ | ✔ | ✔ | — |
 | Créer et modifier des recettes | ✔ | ✔ | — | — |
+| Consulter le planning du cookbook | ✔ | ✔ | ✔ | ✔ |
+| Remanier le planning du cookbook | ✔ | ✔ | — | — |
 | Gérer les membres et invitations | ✔ | — | — | — |
 | Supprimer le cookbook | ✔ | — | — | — |
+
+Les cinq premières lignes correspondent une à une aux drapeaux renvoyés dans `permissions`
+(`getCookbookPermissions`). Les **deux lignes de planification** n'en font pas partie : le contrôle
+est appliqué côté planning (`PLAN_WRITE_ROLES`, §7.7), avec le même seuil que l'écriture de
+recettes. Les omettre laisserait croire qu'un planning de groupe n'est pas protégé par rôle.
 
 ### 7.6 Catalogues — `/api/tags`
 
@@ -1215,7 +1566,7 @@ cookbook n'est visible que par les membres de ce cookbook.
 **Plannings partagés.** Un planning dont `cookbookId` est renseigné appartient au cookbook et non à
 son seul auteur : tous ses membres le voient et le retrouvent sur `GET /week`. Les rôles s'appliquent
 comme pour les recettes — `CREATOR` et `EDITOR` remanient le planning, `COMMENTER` et `READER` le
-consultent. C'est la forme que prend « planifier des repas ensemble » du §2.1. Un planning sans
+consultent. C'est la forme que prend « planifier des repas ensemble » du §2.1 du cahier des charges. Un planning sans
 `cookbookId` reste strictement personnel.
 
 Lorsque plusieurs plannings couvrent la même semaine, `GET /week` privilégie le planning personnel :
@@ -1260,7 +1611,38 @@ Le jeton est vérifié au *handshake* ; une connexion sans jeton valide est refu
 | ← | `cookbook:joined` / `cookbook:left` | `{ userId, username }` | Arrivée ou départ d'un membre. |
 | ← | `error` | `string` | Motif du refus. |
 
-### 7.10 Divers
+### 7.10 Arborescence des écrans (client)
+
+Le §4.6 réduit le client à une seule boîte. Voici ce qu'elle contient : 13 routes déclarées dans
+`client/src/App.tsx`, sous **trois régimes d'accès** distincts.
+
+| Chemin | Écran | Accès |
+|---|---|---|
+| `/` | Redirection selon l'état de session | `RootRoute` — page publique si déconnecté, `/home` sinon |
+| `/login` | Connexion | `PublicRoute` — renvoie vers l'app si déjà connecté |
+| `/register` | Inscription | `PublicRoute` |
+| `/oauth/callback` | Réception des jetons OAuth2 | **non gardée** — c'est elle qui établit la session |
+| `/home` | Tableau de bord | `PrivateRoute` + `Layout` |
+| `/recipes` | Liste et recherche | `PrivateRoute` |
+| `/recipes/new` | Création | `PrivateRoute` |
+| `/recipes/:id` | Fiche recette | `PrivateRoute` |
+| `/recipes/:id/edit` | Modification | `PrivateRoute` |
+| `/cookbooks` | Liste des cookbooks | `PrivateRoute` |
+| `/cookbooks/:id` | Détail : recettes, membres, chat | `PrivateRoute` |
+| `/meal-planner` | Planning et liste de courses | `PrivateRoute` |
+| `/settings` | Profil, préférences, connexions | `PrivateRoute` |
+| `/data` | Import / export | `PrivateRoute` |
+| `*` | Page introuvable | — |
+
+Deux décisions se lisent dans ce tableau. `/oauth/callback` est **délibérément non gardée** : la
+protéger par `PrivateRoute` créerait une boucle, puisque c'est cette page qui établit la session à
+partir des jetons reçus. Et une URL inconnue affiche une **404 explicite** au lieu d'être redirigée en
+silence vers l'accueil, qui ferait passer une faute de frappe pour un problème de droits.
+
+Les gardes du client sont un confort de navigation, **pas une sécurité** : toute donnée reste
+protégée côté serveur, où chaque route vérifie l'authentification et le rôle.
+
+### 7.11 Divers
 
 | Méthode | Chemin | Auth | Description |
 |---|---|:---:|---|
@@ -1268,10 +1650,64 @@ Le jeton est vérifié au *handshake* ; une connexion sans jeton valide est refu
 | `GET` | `/uploads/recipes/:file` | — | Image de recette. Servie en statique, relayée par nginx. |
 
 ---
+## 8. Plan de tests
+
+Trois suites, séparées par ce dont elles ont besoin pour tourner — critère plus utile que la
+distinction habituelle unitaire/intégration, puisqu'il dit exactement quand chacune est exécutable.
+
+| Suite | Commande | Dépendances | Volume |
+|---|---|---|---|
+| Unitaire | `npm test` | aucune — ni base, ni serveur | **64 cas** |
+| API de bout en bout | `npm run test:e2e` | pile complète en marche | **76 vérifications** |
+| Socket.io | `npm run test:socket` | pile complète en marche | **21 vérifications** |
+
+Toutes se lancent depuis `server/`. Les deux dernières attaquent l'application par le proxy nginx,
+donc dans les conditions d'un navigateur.
+
+### Ce que couvre la suite unitaire
+
+| Fichier | Cas | Objet |
+|---|:---:|---|
+| `suggestionEngine.test.ts` | 26 | Pondération IDF, profil de goût, budgets horaires, exclusion des allergènes, diversification MMR, justifications |
+| `mealPlan.test.ts` | 12 | Bornes de semaine, visibilité des plannings partagés, seuils d'écriture |
+| `transfer.test.ts` | 10 | Analyseur CSV caractère par caractère : guillemets, séparateurs dans les champs, sauts de ligne |
+| `mealieFormat.test.ts` | 9 | Interopérabilité Mealie / schema.org dans les deux sens, durées ISO 8601 |
+| `validation.test.ts` | 7 | Normalisation des chaînes vides et des `NaN` à la frontière HTTP |
+
+Ces cinq fichiers ne touchent ni la base ni le réseau : ils vérifient des fonctions pures. C'est ce
+qui rend le moteur de suggestions testable case par case (§10.2) — le classement reçoit des objets
+simples et rend un résultat déterministe.
+
+### Ce que couvrent les suites de bout en bout
+
+`tests/e2e/api.e2e.ts` exécute un scénario à deux comptes, Alice et Bob, et vérifie notamment
+l'**isolation des données** : une recette personnelle d'Alice doit être invisible à Bob, une recette
+de cookbook doit être visible de tous ses membres, et un non-membre doit recevoir un `404` — pas un
+`403`, qui révélerait l'existence de la ressource. Sont également couverts l'inscription, la rotation
+des jetons, la recherche insensible aux accents, la planification, la liste de courses, l'import /
+export et les cas de validation en `400`.
+
+`tests/e2e/socket.e2e.ts` ouvre de vraies connexions WebSocket authentifiées par JWT et vérifie
+qu'un non-membre ne rejoint pas la room, qu'un `READER` ne peut pas publier, et qu'un message émis
+atteint bien les autres membres.
+
+### Autres contrôles
+
+```bash
+cd server && npm run lint && npx tsc --noEmit -p tsconfig.test.json
+cd client && npm run lint && npm run build
+```
+
+`tsconfig.test.json` existe pour une raison précise : `tsc --noEmit` ne couvrait que `src/**`, si
+bien que les fichiers de tests n'étaient pas vérifiés par le compilateur. Le workflow GitHub Actions
+(`.github/workflows/ci.yml`) rejoue lint, typage, tests unitaires et les deux compilations.
+
+Ce que ces suites **ne** couvrent pas : aucun test de rendu côté client (les captures du manuel
+tiennent lieu de vérification visuelle), aucun test de charge, et les écrans de consentement Google
+et GitHub — qui appartiennent à ces fournisseurs et exigent un compte réel.
 
 ---
-
-## 8. Constitution du rendu
+## 9. Constitution du rendu
 
 ### Archive
 
@@ -1305,18 +1741,18 @@ git remote add origin https://github.com/<compte>/SUPMEAL.git
 git push -u origin main
 ```
 
-## 9. Suggestions intelligentes de recettes
+## 10. Suggestions intelligentes de recettes
 
 Fonctionnalité avancée du barème bonus. `GET /api/recipes/suggestions` propose des recettes pour un
 créneau donné du planning.
 
-### 9.1 Ce que le moteur n'est pas
+### 10.1 Ce que le moteur n'est pas
 
 Ce n'est ni un tri par popularité, ni un tirage aléatoire, ni un appel à un service externe. Le
 classement se fait entièrement sur les données de l'application, sans dépendance réseau ni modèle
 pré-entraîné, et chaque suggestion est accompagnée de sa justification.
 
-### 9.2 Architecture
+### 10.2 Architecture
 
 | Fichier | Rôle |
 |---|---|
@@ -1327,7 +1763,7 @@ pré-entraîné, et chaque suggestion est accompagnée de sa justification.
 La séparation est ce qui rend le moteur testable : le classement reçoit des objets simples et rend un
 résultat déterministe, si bien que chaque comportement attendu peut être vérifié isolément.
 
-### 9.3 Représentation vectorielle
+### 10.3 Représentation vectorielle
 
 Une recette est projetée dans un espace de termes formé de ses **ingrédients** et de ses **tags**,
 chaque terme pondéré par sa fréquence inverse de document :
@@ -1352,7 +1788,7 @@ planifiées :
 L'**affinité** est la similarité cosinus entre ce profil et le vecteur de la recette, tous deux
 normalisés — donc dans `[0, 1]`.
 
-### 9.4 Les six signaux
+### 10.4 Les six signaux
 
 | Signal | Poids | Ce qu'il mesure |
 |---|:---:|---|
@@ -1384,7 +1820,7 @@ Sous le budget, l'adéquation vaut 1 ; au-delà elle décroît en `budget / dur�
 zéro — une recette dix minutes trop longue reste envisageable, pas une de trois heures. Une durée non
 renseignée vaut 0,5 : ni favorisée, ni pénalisée.
 
-### 9.5 Filtres
+### 10.5 Filtres
 
 | Règle | Nature |
 |---|---|
@@ -1400,7 +1836,7 @@ recettes éligibles sont déjà planifiées, le moteur les réintroduit en les m
 en signalant `basis.relaxed`. Renvoyer une liste vide sans motif serait moins utile qu'un ensemble de
 répétitions annoncées comme telles.
 
-### 9.6 Diversification
+### 10.6 Diversification
 
 La sélection finale n'est pas « les N meilleurs ». Les scores les plus élevés se ressemblent souvent
 beaucoup, et proposer cinq variantes du même plat n'aide personne. Une **pertinence marginale
@@ -1410,7 +1846,7 @@ maximale** retire, à chaque tour, le candidat qui maximise :
 (1 − λ) · score − λ · max(similarité avec les candidats déjà retenus)      λ = 0,3
 ```
 
-### 9.7 Justifications
+### 10.7 Justifications
 
 Chaque suggestion porte au plus trois motifs, ordonnés par **contribution réelle au score**
 (`poids × signal`) et non par valeur brute du signal. Un signal en dessous de 0,25 n'est pas invoqué.
@@ -1423,14 +1859,14 @@ opposés, tous deux exacts.
 Une suggestion inexpliquée ne se distingue pas d'un tirage au hasard : la justification n'est pas un
 ornement, c'est ce qui rend la fonctionnalité utilisable.
 
-### 9.8 Interprétabilité de la réponse
+### 10.8 Interprétabilité de la réponse
 
 `basis` expose ce sur quoi le classement s'est appuyé : taille du corpus, nombre de favoris,
 profondeur d'historique, ingrédients déjà prévus, allergies déclarées, et si les contraintes ont été
 desserrées. Le champ `breakdown` de chaque suggestion donne les six signaux séparément, ce qui permet
 de comprendre un classement sans lire le code.
 
-### 9.9 Coût et limites
+### 10.9 Coût et limites
 
 Le classement est linéaire en taille de corpus, mais IDF et diversification imposent de tout charger
 en mémoire : le corpus est donc **plafonné à 500 recettes**. Au-delà, il faudrait précalculer et

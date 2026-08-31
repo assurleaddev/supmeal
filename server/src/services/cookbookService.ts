@@ -225,7 +225,9 @@ export async function leaveCookbook(cookbookId: string, userId: string) {
 
   if (!member) throw new AppError('Not a member', 404);
   if (member.role === CookbookRole.CREATOR) {
-    throw new AppError('Creator cannot leave — transfer ownership or delete the cookbook', 400);
+    // Le transfert de propriété n'existe pas : CREATOR ne figure pas dans ASSIGNABLE_ROLES.
+    // Le message ne doit donc pas orienter vers une action que l'application n'offre pas.
+    throw new AppError('Creator cannot leave — delete the cookbook instead', 400);
   }
 
   await prisma.cookbookMember.delete({
