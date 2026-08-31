@@ -11,6 +11,18 @@ import { z } from 'zod';
  * venait à manquer, rendant tous les jetons forgeables. Le serveur refuse donc de démarrer plutôt
  * que de signer avec une valeur connue publiquement.
  */
+/**
+ * Variable facultative dont la chaîne vide vaut absence.
+ *
+ * `docker-compose.yml` transmet `${VAR:-}` pour les fournisseurs OAuth2 non configurés : la
+ * variable existe donc dans l'environnement du conteneur, avec une valeur vide. Un simple
+ * `.optional()` ne l'accepterait pas, puisqu'il ne tolère que `undefined`.
+ */
+const optionalSecret = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().min(1).optional(),
+);
+
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL est requise'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET est requis (16 caractères minimum)'),
@@ -22,12 +34,12 @@ const envSchema = z.object({
 
   // Chaque fournisseur OAuth2 est facultatif : sa stratégie n'est montée que si la paire
   // identifiant/secret est fournie, et l'application reste utilisable sans aucun d'entre eux.
-  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
-  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
-  GITHUB_CLIENT_ID: z.string().min(1).optional(),
-  GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
-  MICROSOFT_CLIENT_ID: z.string().min(1).optional(),
-  MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
+  GOOGLE_CLIENT_ID: optionalSecret,
+  GOOGLE_CLIENT_SECRET: optionalSecret,
+  GITHUB_CLIENT_ID: optionalSecret,
+  GITHUB_CLIENT_SECRET: optionalSecret,
+  MICROSOFT_CLIENT_ID: optionalSecret,
+  MICROSOFT_CLIENT_SECRET: optionalSecret,
 });
 
 const parsed = envSchema.safeParse(process.env);
