@@ -14,6 +14,7 @@
  */
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -28,10 +29,16 @@ const MOBILE = { width: 390, height: 844 };
 
 let count = 0;
 
+/**
+ * Les fichiers portent leur seul intitulé, sans numéro d'ordre.
+ *
+ * Un préfixe numérique paraissait pratique mais rendait le jeu fragile : insérer une capture
+ * décalait toutes les suivantes et cassait silencieusement les liens du manuel. L'ordre reste
+ * visible dans la sortie console, là où il sert.
+ */
 async function shoot(page, name, options = {}) {
   count++;
-  const file = join(OUT, `${String(count).padStart(2, '0')}-${name}.png`);
-  await page.screenshot({ path: file, ...options });
+  await page.screenshot({ path: join(OUT, `${name}.png`), ...options });
   console.log(`  ${String(count).padStart(2, '0')}  ${name}`);
 }
 
@@ -97,9 +104,11 @@ async function fillCurrentWeek() {
     await api(`/meal-plans/${existing.id}/items/${item.id}`, { method: 'DELETE', headers: auth });
   }
 
+  // Volontairement moins d'entrées que de recettes disponibles : il doit rester des candidates
+  // non planifiées, sinon les captures ne montreraient que le cas de repli des suggestions.
   const menu = [
-    [days[0], 'LUNCH'], [days[0], 'DINNER'],
-    [days[2], 'DINNER'], [days[4], 'LUNCH'],
+    [days[0], 'LUNCH'],
+    [days[2], 'DINNER'],
     [days[6], 'DINNER'],
   ];
 
@@ -211,6 +220,21 @@ async function main() {
       await settle(page, 500);
     }
 
+    // ── Suggestions pour un créneau ──
+    // Ouvrir une case vide du planning déclenche la requête de suggestions ; c'est là que la
+    // fonctionnalité se voit.
+    // Cibler une case du planning par son nom accessible : un sélecteur d'icône attraperait aussi
+    // le bouton « + Recette » de la barre de navigation.
+    const addButton = page.getByRole('button', { name: /^Ajouter un d(î|i)ner le/i }).first();
+    if (await addButton.count()) {
+      await addButton.click();
+      // Laisser le temps au classement de revenir avant de capturer.
+      await settle(page, 2200);
+      await shoot(page, 'suggestions-creneau');
+      await page.keyboard.press('Escape');
+      await settle(page, 500);
+    }
+
     // ── Paramètres ──
     await page.goto(`${CLIENT}/settings`, { waitUntil: 'domcontentloaded' });
     await settle(page);
@@ -257,6 +281,19 @@ async function main() {
     await shoot(page, 'mobile-planning');
 
     console.log(`\n${count} captures écrites dans docs/captures/`);
+
+    // Contrôle de cohérence : le manuel ne doit référencer que des fichiers existants, et toute
+    // capture produite doit servir. Une rupture doit se voir ici, pas à la relecture du rendu.
+    const manual = readFileSync(join(OUT, '..', 'manuel-utilisateur.md'), 'utf8');
+    const referenced = [...manual.matchAll(/\]\(captures\/([^)]+)\)/g)].map((m) => m[1]);
+    const onDisk = readdirSync(OUT).filter((entry) => entry.endsWith('.png'));
+
+    const broken = referenced.filter((name) => !onDisk.includes(name));
+    const unused = onDisk.filter((name) => !referenced.includes(name));
+
+    if (broken.length) console.warn(`  ⚠ liens cassés dans le manuel : ${broken.join(', ')}`);
+    if (unused.length) console.warn(`  ⚠ captures non référencées : ${unused.join(', ')}`);
+    if (!broken.length && !unused.length) console.log('  ✓ manuel et captures cohérents');
     console.log(
       "Restent à produire à la main : les écrans de consentement Google et GitHub, qui\n" +
         'appartiennent à ces fournisseurs et exigent un compte réel.',

@@ -278,12 +278,24 @@ export default function MealPlanner() {
                           </IconButton>
                         </Box>
                       ))}
+                      {/* C'était un div cliquable sans nom accessible : un lecteur d'écran
+                          n'annonçait rien, et le clavier ne pouvait pas l'atteindre. */}
                       <Box
-                        sx={{ cursor: 'pointer', borderRadius: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.disabled', '&:hover': { color: 'primary.main', bgcolor: 'primary.50' } }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Ajouter un ${MEAL_LABELS[mealType].toLowerCase()} le ${format(parseISO(day), 'EEEE d MMMM', { locale: fr })}`}
+                        sx={{ cursor: 'pointer', borderRadius: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.disabled', '&:hover': { color: 'primary.main', bgcolor: 'primary.50' }, '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', color: 'primary.main' } }}
                         onClick={() => { setAddItemTarget({ date: day, mealType }); setAddItemOpen(true); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setAddItemTarget({ date: day, mealType });
+                            setAddItemOpen(true);
+                          }
+                        }}
                       >
                         <AddIcon sx={{ fontSize: 14 }} />
-                        <Typography variant="caption" sx={{ fontSize: 11 }}>{MEAL_ICONS[mealType]}</Typography>
+                        <Typography variant="caption" sx={{ fontSize: 11 }} aria-hidden="true">{MEAL_ICONS[mealType]}</Typography>
                       </Box>
                     </Box>
                   );
