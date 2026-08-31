@@ -63,6 +63,19 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
+L'étape `cp .env.example .env` n'est pas facultative, et l'oubli ne produit pas un échec obscur :
+`POSTGRES_PASSWORD`, `JWT_SECRET` et `JWT_REFRESH_SECRET` sont déclarées avec la syntaxe
+`${VAR:?message}`. Compose refuse alors de lancer quoi que ce soit et affiche la marche à suivre :
+
+```
+required variable POSTGRES_PASSWORD is missing a value: absent, copiez .env.example en .env
+avant docker compose up
+```
+
+Le choix est délibéré : donner une valeur par défaut à un mot de passe dans `docker-compose.yml`
+reviendrait à inscrire un secret dans le dépôt. Les valeurs de `.env.example` sont des exemples
+assumés comme tels — le serveur avertit au démarrage si les secrets JWT n'ont pas été remplacés.
+
 Les 3 services démarrent dans l'ordre imposé par les directives `depends_on` / `healthcheck` :
 `postgres` (attente de `pg_isready`) → `server` → `client`.
 

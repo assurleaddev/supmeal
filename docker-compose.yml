@@ -3,9 +3,12 @@ services:
     image: postgres:16-alpine
     container_name: supmeal_db
     restart: unless-stopped
+    # Les trois valeurs ci-dessous sont exigées explicitement (syntaxe ${VAR:?message}). Sans .env,
+    # Compose interrompt le lancement en affichant la consigne à suivre, au lieu de laisser
+    # démarrer une pile qui échouerait plus loin sur une erreur de l’image PostgreSQL.
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-supmeal}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?absent, copiez .env.example en .env avant docker compose up}"
       POSTGRES_DB: ${POSTGRES_DB:-supmeal}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -27,9 +30,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-supmeal}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-supmeal}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-supmeal}:${POSTGRES_PASSWORD:?absent, copiez .env.example en .env avant docker compose up}@postgres:5432/${POSTGRES_DB:-supmeal}"
+      JWT_SECRET: "${JWT_SECRET:?absent, copiez .env.example en .env avant docker compose up}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?absent, copiez .env.example en .env avant docker compose up}"
       PORT: 3000
       CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
       NODE_ENV: ${NODE_ENV:-production}
