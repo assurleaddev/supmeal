@@ -197,6 +197,8 @@ export interface RecipeFormData {
   tags: string[];
 }
 
+export type OAuthProvider = 'google' | 'github' | 'microsoft';
+
 export interface MealPlanWeek {
   weekStart: string;
   weekEnd: string;

@@ -10,6 +10,7 @@ import {
   MealPlan,
   MealPlanItem,
   MealPlanWeek,
+  OAuthProvider,
   MealType,
   Message,
   PaginatedResponse,
@@ -40,6 +41,16 @@ export const authApi = {
 // ─────────────────────────────────────────
 // Users
 // ─────────────────────────────────────────
+
+export const oauthApi = {
+  /** Fournisseurs réellement configurés sur ce déploiement. */
+  providers: () =>
+    api.get<ApiResponse<{ providers: OAuthProvider[] }>>('/auth/providers'),
+
+  /** Prépare le rattachement d'un fournisseur au compte connecté et renvoie l'URL d'autorisation. */
+  link: (provider: OAuthProvider) =>
+    api.post<ApiResponse<{ url: string }>>(`/auth/link/${provider}`),
+};
 
 export const userApi = {
   getMe: () => api.get<ApiResponse<User>>('/users/me'),

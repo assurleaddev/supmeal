@@ -80,6 +80,67 @@ Le navigateur n'appelle jamais `localhost:3000` directement : nginx (`client/ngi
 `/api/`, `/uploads/` et `/socket.io/` (avec mise à niveau WebSocket) vers le service `server`.
 L'API reste néanmoins exposée sur l'hôte pour le débogage et pour les callbacks OAuth2.
 
+### Activation de l'authentification OAuth2 (optionnel)
+
+L'application fonctionne sans aucun fournisseur OAuth2 : seule l'authentification par e-mail et mot
+de passe est alors proposée. Chaque fournisseur est activé indépendamment en renseignant sa paire
+identifiant/secret dans `.env`, puis en redémarrant le service `server`.
+
+Le serveur expose les fournisseurs réellement configurés sur `GET /api/auth/providers`, et le client
+n'affiche que les boutons correspondants. Un fournisseur non configuré répond `503` avec un message
+explicite plutôt que d'échouer sur une stratégie Passport absente.
+
+L'URL de rappel à déclarer chez chaque fournisseur est construite à partir de `OAUTH_CALLBACK_BASE` :
+
+```
+${OAUTH_CALLBACK_BASE}/api/auth/<provider>/callback
+```
+
+soit, en déploiement local par défaut :
+
+| Fournisseur | URL de rappel à déclarer |
+|---|---|
+| Google | `http://localhost:3000/api/auth/google/callback` |
+| GitHub | `http://localhost:3000/api/auth/github/callback` |
+| Microsoft | `http://localhost:3000/api/auth/microsoft/callback` |
+
+#### Google
+
+1. Ouvrir [console.cloud.google.com](https://console.cloud.google.com/) → **APIs & Services** →
+   **Credentials** → **Create credentials** → **OAuth client ID**
+2. Type d'application : **Web application**
+3. Ajouter l'URL de rappel ci-dessus dans **Authorized redirect URIs**
+4. Reporter l'identifiant et le secret dans `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`
+
+#### GitHub
+
+1. Ouvrir [github.com/settings/developers](https://github.com/settings/developers) →
+   **OAuth Apps** → **New OAuth App**
+2. **Authorization callback URL** : l'URL de rappel ci-dessus
+3. Générer un *client secret*, puis renseigner `GITHUB_CLIENT_ID` et `GITHUB_CLIENT_SECRET`
+
+#### Microsoft
+
+1. Ouvrir [portal.azure.com](https://portal.azure.com/) → **Microsoft Entra ID** →
+   **App registrations** → **New registration**
+2. **Redirect URI** : plateforme **Web**, avec l'URL de rappel ci-dessus
+3. **Certificates & secrets** → **New client secret**
+4. Renseigner `MICROSOFT_CLIENT_ID` et `MICROSOFT_CLIENT_SECRET`
+
+#### Rattachement à un compte existant
+
+Depuis **Paramètres → Comptes liés**, un utilisateur déjà connecté peut ajouter un fournisseur à son
+compte. Le client demande d'abord une URL d'autorisation à `POST /api/auth/link/:provider` ; le
+serveur y place un paramètre `state` signé (JWT de 10 minutes) qui identifie le compte courant, et le
+callback rattache le fournisseur à **ce** compte plutôt que de se fier à l'adresse e-mail renvoyée.
+
+Sans ce mécanisme, un fournisseur dont l'adresse e-mail diffère de celle du compte créerait un
+second compte et la session basculerait dessus sans que l'utilisateur en soit averti.
+
+Si l'identité du fournisseur est déjà rattachée à un autre compte SUPMEAL, la liaison est refusée.
+
+---
+
 ### Jeu de données de démonstration (optionnel)
 
 Le seed n'est **pas** exécuté automatiquement par Docker. Pour peupler la base avec les tags par

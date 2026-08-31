@@ -7,12 +7,13 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
-import { userApi } from '../../api';
+import { userApi, oauthApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { PROVIDER_META, useOAuthProviders } from '../../components/auth/OAuthProviderButtons';
+import { OAuthProvider } from '../../types';
 
-const API_URL = import.meta.env.VITE_API_URL ?? '';
 const DIET_OPTIONS = ['Végétarien', 'Vegan', 'Sans gluten', 'Sans lactose', 'Halal', 'Casher', 'Paléo', 'Keto'];
 const CUISINE_OPTIONS = ['Française', 'Italienne', 'Japonaise', 'Mexicaine', 'Indienne', 'Thaïlandaise', 'Méditerranéenne', 'Américaine'];
 const ALLERGY_OPTIONS = ['Gluten', 'Arachides', 'Noix', 'Lait', 'Oeufs', 'Soja', 'Poisson', 'Crustacés', 'Céleri', 'Moutarde'];
@@ -21,6 +22,7 @@ export default function Settings() {
   const [tab, setTab] = useState(0);
   const { user, updateUser } = useAuthStore();
   const queryClient = useQueryClient();
+  const { providers: oauthProviders } = useOAuthProviders();
   const [loading, setLoading] = useState(false);
 
   const { data: profile } = useQuery({
@@ -82,6 +84,18 @@ export default function Settings() {
       toast.success('Préférences sauvegardées !');
     } catch { toast.error('Erreur'); }
     finally { setLoading(false); }
+  };
+
+  // Le rattachement passe par le serveur, qui émet un `state` signé identifiant le compte courant.
+  // Ouvrir directement /api/auth/<provider> relançait une simple connexion et pouvait basculer la
+  // session sur un autre compte si l'adresse e-mail du fournisseur différait.
+  const handleLinkOAuth = async (provider: OAuthProvider) => {
+    try {
+      const { data } = await oauthApi.link(provider);
+      window.location.href = data.data!.url;
+    } catch {
+      toast.error('Impossible de démarrer la liaison');
+    }
   };
 
   const handleUnlinkOAuth = async (provider: string) => {
@@ -201,20 +215,27 @@ export default function Settings() {
           <Typography variant="h6" fontWeight={600}>Comptes liés</Typography>
           <Typography variant="body2" color="text.secondary">Gérez vos connexions OAuth2</Typography>
 
-          {(['google', 'github', 'microsoft'] as const).map((provider) => {
+          {oauthProviders.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Aucun fournisseur OAuth2 n'est configuré sur ce déploiement.
+            </Typography>
+          )}
+
+          {oauthProviders.map((provider) => {
             const linked = profile?.oauthAccounts?.find((a) => a.provider === provider);
-            const labels: Record<string, string> = { google: '🔵 Google', github: '⚫ GitHub', microsoft: '🟦 Microsoft' };
+            const { label, Icon } = PROVIDER_META[provider];
 
             return (
               <Box key={provider} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography fontWeight={600}>{labels[provider]}</Typography>
+                  <Icon />
+                  <Typography fontWeight={600}>{label}</Typography>
                   {linked && <Badge variant="success" size="sm">Lié</Badge>}
                 </Box>
                 {linked ? (
                   <Button variant="contained" color="error" size="small" onClick={() => handleUnlinkOAuth(provider)}>Dissocier</Button>
                 ) : (
-                  <Button component="a" href={`${API_URL}/api/auth/${provider}`} variant="outlined" size="small" color="inherit" sx={{ borderColor: 'divider', color: 'text.primary' }}>Lier</Button>
+                  <Button variant="outlined" size="small" color="inherit" onClick={() => handleLinkOAuth(provider)} sx={{ borderColor: 'divider', color: 'text.primary' }}>Lier</Button>
                 )}
               </Box>
             );

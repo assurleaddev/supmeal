@@ -19,6 +19,15 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   CLIENT_URL: z.string().url().default('http://localhost:8080'),
   OAUTH_CALLBACK_BASE: z.string().url().default('http://localhost:3000'),
+
+  // Chaque fournisseur OAuth2 est facultatif : sa stratégie n'est montée que si la paire
+  // identifiant/secret est fournie, et l'application reste utilisable sans aucun d'entre eux.
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  GITHUB_CLIENT_ID: z.string().min(1).optional(),
+  GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+  MICROSOFT_CLIENT_ID: z.string().min(1).optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
