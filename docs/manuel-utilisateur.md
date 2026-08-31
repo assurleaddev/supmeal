@@ -1,5 +1,10 @@
 # Manuel Utilisateur — SUPMEAL
 
+> **Captures d'écran** — les emplacements marqués `[Capture : …]` indiquent les illustrations à
+> insérer dans `docs/captures/`. Elles ne peuvent être produites qu'en exécutant l'application avec
+> un jeu de données réel et, pour OAuth2, des identifiants de fournisseur qui ne figurent pas dans le
+> rendu (voir la documentation technique, §2, activation d'OAuth2).
+
 ## Présentation
 
 SUPMEAL est une application web de gestion de recettes et de planification de repas. Elle permet de créer, organiser et partager des recettes au sein de cookbooks collaboratifs.
@@ -17,11 +22,18 @@ SUPMEAL est une application web de gestion de recettes et de planification de re
 ### Se connecter
 
 - **Avec email/mot de passe** : Saisissez vos identifiants sur la page de connexion
-- **Avec un compte tiers** : Cliquez sur **Google**, **GitHub** ou **Microsoft** pour une connexion OAuth2 sécurisée
+- **Avec un compte tiers** : Cliquez sur **Google**, **GitHub** ou **Microsoft** pour une connexion
+  OAuth2 sécurisée. Seuls les fournisseurs configurés sur votre déploiement apparaissent ; si aucun
+  ne l'est, la section n'est pas affichée et seule la connexion par mot de passe est proposée.
+
+`[Capture : page de connexion avec les boutons OAuth2]`
+`[Capture : écran de consentement du fournisseur]`
 
 ---
 
 ## 2. Tableau de bord (Accueil)
+
+`[Capture : tableau de bord avec statistiques et menu du jour]`
 
 Le tableau de bord affiche :
 - Un **message de bienvenue** avec la date du jour
@@ -35,6 +47,8 @@ Le tableau de bord affiche :
 ## 3. Gestion des recettes
 
 ### Créer une recette
+
+`[Capture : formulaire de création, ingrédients et étapes]`
 
 1. Cliquez sur **"+ Nouvelle recette"** (barre de navigation ou page Recettes)
 2. Remplissez les champs :
@@ -69,6 +83,8 @@ Les recettes appartenant à un cookbook partagé peuvent être commentées. Sais
 ---
 
 ## 4. Recherche et filtrage
+
+`[Capture : page Mes recettes, panneau de filtres déployé]`
 
 La page **"Mes recettes"** propose des filtres puissants :
 
@@ -108,6 +124,9 @@ La page **"Mes recettes"** propose des filtres puissants :
 
 ### Onglets d'un cookbook
 
+`[Capture : onglet Chat d'un cookbook partagé]`
+`[Capture : onglet Membres avec les rôles]`
+
 - **🍽 Recettes** : Toutes les recettes du groupe, avec barre de recherche dédiée
 - **👥 Membres** : Liste des membres et gestion des rôles (Créateur uniquement)
 - **💬 Chat** : Messagerie instantanée du groupe (temps réel)
@@ -131,6 +150,9 @@ ou depuis une page de détail de recette : **"📅 Planifier"**
 
 ### Générer la liste de courses
 
+`[Capture : grille hebdomadaire du planning]`
+`[Capture : liste de courses agrégée]`
+
 Une fois votre planning créé, cliquez sur **"🛒 Liste de courses"** pour obtenir la liste agrégée de tous les ingrédients de la semaine, avec les quantités totales.
 
 ### Naviguer entre les semaines
@@ -145,9 +167,15 @@ Page accessible via le menu utilisateur → **"Import / Export"**
 
 ### Exporter
 
-1. Choisissez le format : **JSON** (complet, compatible Mealie) ou **CSV** (tableur)
-2. Cliquez sur **"Exporter"** pour télécharger le fichier
-3. ⚠️ Le fichier contient toutes vos données en clair — conservez-le en lieu sûr
+1. Choisissez le format :
+   - **JSON** — export complet et réimportable : recettes, cookbooks et leur contenu
+   - **CSV** — tableur ; format à plat, une partie du détail est perdue
+   - **Mealie** — liste de recettes importable dans Mealie ; les cookbooks y sont aplatis
+2. ⚠️ **Cochez la case d'avertissement.** Le bouton d'export reste inactif tant que vous ne l'avez
+   pas fait : le fichier produit contient toutes vos données **en clair**, sans chiffrement.
+3. Cliquez sur **« Exporter »** pour télécharger le fichier
+
+`[Capture : page Import / Export, avertissement coché]`
 
 ### Importer
 
@@ -155,9 +183,11 @@ Page accessible via le menu utilisateur → **"Import / Export"**
 2. Confirmez l'avertissement
 3. Le rapport d'import affiche le nombre de recettes et cookbooks créés, ainsi que les éventuelles erreurs
 
-**Formats acceptés :**
+**Formats acceptés** — le format est reconnu automatiquement :
 - JSON SUPMEAL (export de cette application)
-- JSON compatible Mealie
+- JSON Mealie ou schema.org/Recipe : une recette seule, un tableau de recettes, ou un objet les
+  regroupant. Les durées ISO 8601 (`PT1H30M`), les portions en texte libre (« 4 servings ») et les
+  ingrédients sous forme d'objets ou de chaînes sont interprétés.
 - CSV avec colonnes : `cookbook, title, description, prepTime, cookTime, portions, sourceUrl, tags, ingredients, steps`
 
 ---
@@ -184,4 +214,36 @@ Définissez vos préférences pour personnaliser l'expérience :
 
 ### Comptes liés (OAuth2)
 
+`[Capture : onglet Comptes liés, un fournisseur marqué « Lié »]`
+
 Associez ou dissociez des comptes Google, GitHub ou Microsoft à votre profil.
+
+---
+
+## 9. Bon à savoir
+
+### Rôles dans un cookbook
+
+| Rôle | Consulter | Commenter et chatter | Créer et modifier des recettes | Gérer les membres |
+|---|:---:|:---:|:---:|:---:|
+| **Créateur** | ✔ | ✔ | ✔ | ✔ |
+| **Éditeur** | ✔ | ✔ | ✔ | — |
+| **Commentateur** | ✔ | ✔ | — | — |
+| **Lecteur** | ✔ | — | — | — |
+
+Seul le créateur peut inviter, changer un rôle ou supprimer le cookbook. Il ne peut pas quitter son
+propre cookbook : il doit le supprimer.
+
+### Quitter un cookbook
+
+En quittant un cookbook, vous perdez l'accès à **toutes** ses recettes, y compris celles que vous y
+avez ajoutées : elles restent au cookbook et à ses membres.
+
+### Recherche
+
+La recherche ignore les accents et la casse : « creme » trouve « Crème brûlée ». Elle porte sur le
+titre, la description, **les étapes**, les ingrédients et les tags.
+
+### Page introuvable
+
+Une adresse inconnue affiche une page 404 proposant un retour au tableau de bord ou à vos recettes.

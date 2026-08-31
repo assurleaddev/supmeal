@@ -1,5 +1,8 @@
 # Documentation Technique — SUPMEAL
 
+> L'identité visuelle et les règles d'interface font l'objet d'un document distinct :
+> [charte graphique](charte-graphique.md).
+
 ## 1. Prérequis et configuration
 
 ### Prérequis
@@ -254,134 +257,720 @@ docker compose down -v       # arrêt + suppression des données (postgres_data,
 
 ## 4. Diagrammes UML
 
-### Diagramme de classes (modèle de données)
+Les diagrammes sont écrits en Mermaid : ils se rendent directement dans GitHub, GitLab et la plupart
+des éditeurs Markdown, et restent versionnables au même titre que le code.
 
-```
-┌─────────────────┐         ┌──────────────────┐
-│      User       │ 1     * │   OAuthAccount   │
-│─────────────────│─────────│──────────────────│
-│ id: String      │         │ id: String        │
-│ email: String   │         │ provider: String  │
-│ username: String│         │ providerId: String│
-│ passwordHash?: S│         │ userId: String    │
-│ avatar?: String │         └──────────────────┘
-└───────┬─────────┘
-        │ 1
-        │
-        │ *       ┌─────────────────┐
-        ├─────────│   Cookbook      │
-        │         │─────────────────│
-        │         │ id: String      │
-        │         │ name: String    │
-        │         │ createdById: S  │
-        │         └────────┬────────┘
-        │                  │ 1
-        │ *                │ *
-┌───────┴──────────┐  ┌────┴───────────────┐
-│  CookbookMember  │  │      Recipe        │
-│──────────────────│  │────────────────────│
-│ userId: String   │  │ id: String          │
-│ cookbookId: Str  │  │ title: String       │
-│ role: Enum       │  │ cookbookId?: String │
-└──────────────────┘  │ createdById: String │
-                       └────────┬────────────┘
-                                │ 1
-              ┌─────────────────┼─────────────────┐
-              │ *               │ *               │ *
-  ┌───────────┴──┐  ┌───────────┴──┐  ┌──────────┴──┐
-  │RecipeIngred. │  │  RecipeStep  │  │  RecipeTag  │
-  │──────────────│  │──────────────│  │─────────────│
-  │ ingredientId │  │ orderIndex   │  │ tagId       │
-  │ quantity?    │  │ description  │  └──────┬──────┘
-  │ unit?        │  │ duration?    │         │ *
-  └──────┬───────┘  └──────────────┘  ┌─────┴──────┐
-         │ *                           │    Tag      │
-  ┌──────┴───────┐                     │────────────│
-  │ Ingredient   │                     │ name: Str  │
-  │──────────────│                     │ type: Enum │
-  │ name: String │                     └────────────┘
-  └──────────────┘
+### 4.1 Diagramme de cas d'utilisation
+
+```mermaid
+graph LR
+    subgraph Acteurs
+        V((Visiteur))
+        U((Utilisateur))
+        C((Créateur<br/>de cookbook))
+        P((Fournisseur<br/>OAuth2))
+    end
+
+    subgraph "Compte"
+        UC1[S'inscrire]
+        UC2[Se connecter]
+        UC3[Se connecter via OAuth2]
+        UC4[Changer son mot de passe]
+        UC5[Lier un compte OAuth2]
+        UC6[Définir ses préférences culinaires]
+    end
+
+    subgraph "Recettes"
+        UC7[Créer une recette]
+        UC8[Modifier / supprimer une recette]
+        UC9[Rechercher et filtrer]
+        UC10[Marquer comme favorite]
+        UC11[Téléverser une photo]
+    end
+
+    subgraph "Cookbooks partagés"
+        UC12[Créer un cookbook]
+        UC13[Inviter un membre]
+        UC14[Rejoindre via invitation]
+        UC15[Attribuer un rôle]
+        UC16[Commenter une recette]
+        UC17[Discuter en temps réel]
+        UC18[Quitter le cookbook]
+    end
+
+    subgraph "Planification"
+        UC19[Planifier un repas]
+        UC20[Générer la liste de courses]
+    end
+
+    subgraph "Portabilité"
+        UC21[Exporter ses données]
+        UC22[Importer un fichier]
+    end
+
+    V --> UC1
+    V --> UC2
+    V --> UC3
+    UC3 -.-> P
+
+    U --> UC2
+    U --> UC4
+    U --> UC5
+    U --> UC6
+    U --> UC7
+    U --> UC8
+    U --> UC9
+    U --> UC10
+    U --> UC11
+    U --> UC12
+    U --> UC14
+    U --> UC16
+    U --> UC17
+    U --> UC18
+    U --> UC19
+    U --> UC20
+    U --> UC21
+    U --> UC22
+
+    C --> UC13
+    C --> UC15
 ```
 
-### Diagramme de séquence — Authentification JWT
+Le **Créateur de cookbook** est une spécialisation de l'**Utilisateur** : il en possède tous les cas
+d'utilisation, et seul lui peut gérer les membres. Les rôles `EDITOR`, `COMMENTER` et `READER`
+restreignent progressivement l'accès (voir §4.5).
 
-```
-Client          API Server        Database
-  │                 │                │
-  │──POST /login───>│                │
-  │                 │──findUser()───>│
-  │                 │<──user──────── │
-  │                 │──bcrypt.verify()│
-  │                 │──generateTokens│
-  │<─{accessToken,  │                │
-  │   refreshToken}─│                │
-  │                 │                │
-  │──GET /recipes   │                │
-  │ Bearer: token──>│                │
-  │                 │──jwt.verify()  │
-  │                 │──findRecipes()>│
-  │<────recipes─────│<──recipes──── │
+### 4.2 Diagramme de classes — modèle de données
+
+```mermaid
+classDiagram
+    class User {
+        +String id
+        +String email
+        +String username
+        +String~nullable~ passwordHash
+        +String~nullable~ avatar
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class OAuthAccount {
+        +String id
+        +String provider
+        +String providerId
+        +String~nullable~ accessToken
+        +String~nullable~ refreshToken
+    }
+
+    class UserPreferences {
+        +String id
+        +String[] diet
+        +String[] allergies
+        +String[] cuisineTypes
+        +Int defaultPortions
+    }
+
+    class Cookbook {
+        +String id
+        +String name
+        +String~nullable~ description
+        +String~nullable~ coverImage
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class CookbookMember {
+        +String id
+        +CookbookRole role
+        +DateTime joinedAt
+    }
+
+    class CookbookInvite {
+        +String id
+        +String email
+        +String token
+        +CookbookRole role
+        +DateTime expiresAt
+        +DateTime~nullable~ usedAt
+    }
+
+    class Recipe {
+        +String id
+        +String title
+        +String~nullable~ description
+        +Int~nullable~ prepTime
+        +Int~nullable~ cookTime
+        +Int portions
+        +String~nullable~ sourceUrl
+        +String~nullable~ imageUrl
+        +Boolean isPersonal
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Ingredient {
+        +String id
+        +String name
+    }
+
+    class RecipeIngredient {
+        +String id
+        +Float~nullable~ quantity
+        +String~nullable~ unit
+        +String~nullable~ notes
+        +Int orderIndex
+    }
+
+    class RecipeStep {
+        +String id
+        +Int orderIndex
+        +String description
+        +Int~nullable~ duration
+    }
+
+    class Tag {
+        +String id
+        +String name
+        +TagType type
+    }
+
+    class RecipeTag {
+        +String recipeId
+        +String tagId
+    }
+
+    class Favorite {
+        +String userId
+        +String recipeId
+        +DateTime createdAt
+    }
+
+    class MealPlan {
+        +String id
+        +String~nullable~ name
+        +Date weekStart
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class MealPlanItem {
+        +String id
+        +Date date
+        +MealType mealType
+        +Int~nullable~ portions
+    }
+
+    class Comment {
+        +String id
+        +String content
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Message {
+        +String id
+        +String content
+        +DateTime createdAt
+    }
+
+    class CookbookRole {
+        <<enumeration>>
+        CREATOR
+        EDITOR
+        COMMENTER
+        READER
+    }
+
+    class TagType {
+        <<enumeration>>
+        CATEGORY
+        DIET
+        DIFFICULTY
+        CUISINE
+        CUSTOM
+    }
+
+    class MealType {
+        <<enumeration>>
+        BREAKFAST
+        LUNCH
+        DINNER
+        SNACK
+    }
+
+    User "1" --> "0..*" OAuthAccount
+    User "1" --> "0..1" UserPreferences
+    User "1" --> "0..*" Cookbook : crée
+    User "1" --> "0..*" CookbookMember
+    User "1" --> "0..*" CookbookInvite : émet
+    User "1" --> "0..*" Recipe : rédige
+    User "1" --> "0..*" Favorite
+    User "1" --> "0..*" MealPlan
+    User "1" --> "0..*" Comment
+    User "1" --> "0..*" Message
+
+    Cookbook "1" --> "1..*" CookbookMember
+    Cookbook "1" --> "0..*" CookbookInvite
+    Cookbook "1" --> "0..*" Recipe
+    Cookbook "1" --> "0..*" Message
+    Cookbook "1" --> "0..*" MealPlan
+
+    Recipe "1" --> "1..*" RecipeIngredient
+    Recipe "1" --> "1..*" RecipeStep
+    Recipe "1" --> "0..*" RecipeTag
+    Recipe "1" --> "0..*" Favorite
+    Recipe "1" --> "0..*" Comment
+    Recipe "1" --> "0..*" MealPlanItem
+
+    Ingredient "1" --> "0..*" RecipeIngredient
+    Tag "1" --> "0..*" RecipeTag
+    MealPlan "1" --> "0..*" MealPlanItem
+
+    CookbookMember ..> CookbookRole
+    CookbookInvite ..> CookbookRole
+    Tag ..> TagType
+    MealPlanItem ..> MealType
 ```
 
-### Diagramme de séquence — Messagerie temps réel (Socket.io)
+`RecipeIngredient`, `RecipeTag` et `CookbookMember` sont des **classes-association** : elles portent
+des attributs propres à la relation (quantité et unité pour un ingrédient, rôle pour un membre) et ne
+peuvent donc pas être réduites à une simple table de jonction.
 
+### 4.3 Diagramme de séquence — connexion et rafraîchissement de jeton
+
+```mermaid
+sequenceDiagram
+    actor U as Navigateur
+    participant N as nginx
+    participant A as API REST
+    participant D as PostgreSQL
+
+    U->>N: POST /api/auth/login
+    N->>A: proxy
+    A->>D: SELECT user WHERE email
+    D-->>A: utilisateur + condensat
+    A->>A: bcrypt.compare (coût 12)
+    A-->>U: accessToken (15 min) + refreshToken (7 j)
+
+    Note over U: Les jetons sont conservés<br/>par le store d'authentification
+
+    U->>A: GET /api/recipes (Bearer accessToken)
+    A->>A: jwt.verify
+    A->>D: SELECT recettes visibles
+    D-->>A: résultats
+    A-->>U: 200 + recettes
+
+    Note over U,A: Quinze minutes plus tard
+
+    U->>A: GET /api/recipes (jeton expiré)
+    A-->>U: 401
+    U->>A: POST /api/auth/refresh (refreshToken)
+    A->>D: SELECT user WHERE id
+    A-->>U: nouveaux jetons
+    U->>A: rejoue la requête initiale
+    A-->>U: 200 + recettes
 ```
-Client A    Socket.io Server    Client B
-   │               │                │
-   │──connect()───>│                │
-   │ {token: JWT}  │                │
-   │               │──verify JWT    │
-   │<──connected───│                │
-   │               │<──connect()────│
-   │               │ {token: JWT}   │
-   │──join room───>│                │
-   │ cookbookId    │<──join room────│
-   │               │                │
-   │──sendMessage─>│                │
-   │ {content}     │──save to DB    │
-   │               │──broadcast()──>│
-   │<──message─────│                │
-   │               │────message────>│
+
+L'intercepteur HTTP du client sérialise les rafraîchissements : les requêtes concurrentes qui
+échouent en `401` attendent le nouveau jeton au lieu de déclencher chacune sa propre rotation.
+
+### 4.4 Diagramme de séquence — rattachement d'un fournisseur OAuth2
+
+```mermaid
+sequenceDiagram
+    actor U as Utilisateur connecté
+    participant C as Client
+    participant A as API REST
+    participant P as Fournisseur OAuth2
+    participant D as PostgreSQL
+
+    U->>C: Paramètres → « Lier »
+    C->>A: POST /api/auth/link/:provider (Bearer)
+    A->>A: signe un state (JWT, 10 min, sub = userId)
+    A-->>C: URL d'autorisation + state
+    C->>P: redirection
+
+    U->>P: consentement
+    P-->>A: GET /api/auth/:provider/callback (code, state)
+    A->>P: échange code → jeton d'accès
+    P-->>A: jeton + profil
+    A->>A: vérifie le state → identifie le compte cible
+
+    alt identité déjà liée à un autre compte
+        A-->>C: redirection /login?error=oauth&reason=…
+    else
+        A->>D: INSERT OAuthAccount (userId du state)
+        A-->>C: redirection /oauth/callback + jetons
+    end
+```
+
+Le `state` est ce qui distingue un **rattachement** d'une **connexion** : sans lui, le callback ne
+peut que rapprocher les comptes par adresse e-mail, et crée un second compte lorsqu'elles diffèrent.
+
+### 4.5 Diagramme de séquence — messagerie temps réel et permissions
+
+```mermaid
+sequenceDiagram
+    actor A as Membre A (EDITOR)
+    actor B as Membre B (READER)
+    participant S as Socket.io
+    participant D as PostgreSQL
+
+    A->>S: connect { auth: token }
+    S->>S: jwt.verify
+    S-->>A: connected
+    B->>S: connect { auth: token }
+    S-->>B: connected
+
+    A->>S: cookbook:join(cookbookId)
+    S->>D: SELECT CookbookMember
+    D-->>S: rôle EDITOR
+    S->>S: join room cookbook:<id>
+
+    B->>S: cookbook:join(cookbookId)
+    S->>D: SELECT CookbookMember
+    D-->>S: rôle READER
+    S->>S: join room cookbook:<id>
+
+    A->>S: cookbook:sendMessage
+    S->>D: SELECT CookbookMember → EDITOR
+    S->>D: INSERT Message
+    S-->>A: cookbook:message (diffusion à la room)
+    S-->>B: cookbook:message
+
+    B->>S: cookbook:sendMessage
+    S->>D: SELECT CookbookMember → READER
+    S-->>B: error « Insufficient permissions »
+    Note over S,D: Rien n'est écrit,<br/>rien n'est diffusé
+```
+
+### 4.6 Diagramme de composants et de déploiement
+
+```mermaid
+graph TB
+    subgraph Navigateur
+        SPA["Client React<br/>(SPA, aucune logique métier)"]
+    end
+
+    subgraph "Hôte Docker"
+        subgraph "conteneur client"
+            NG["nginx<br/>:80"]
+            ST["Fichiers statiques<br/>(build Vite)"]
+        end
+
+        subgraph "conteneur server"
+            EX["Express<br/>:3000"]
+            RT["routes/<br/>adaptateurs HTTP"]
+            SV["services/<br/>logique métier"]
+            MW["middleware/<br/>auth, rôles, erreurs, upload"]
+            IO["Socket.io"]
+            PR["Client Prisma"]
+        end
+
+        subgraph "conteneur postgres"
+            DB[("PostgreSQL 16<br/>:5432")]
+        end
+
+        VU[("volume<br/>uploads_data")]
+        VD[("volume<br/>postgres_data")]
+    end
+
+    EXT["Fournisseurs OAuth2<br/>Google · GitHub · Microsoft"]
+
+    SPA -->|HTTPS| NG
+    NG --> ST
+    NG -->|"/api/ → proxy"| EX
+    NG -->|"/uploads/ → proxy"| EX
+    NG -->|"/socket.io/ → WebSocket"| IO
+
+    EX --> RT
+    RT --> SV
+    RT --> MW
+    SV --> PR
+    IO --> PR
+    PR -->|TCP 5432| DB
+
+    EX --> VU
+    DB --> VD
+    EX -.->|échange de jeton| EXT
+```
+
+Les trois briques du §2.3.1 correspondent aux trois conteneurs. Le navigateur ne joint jamais l'API
+directement : nginx relaie `/api/`, `/uploads/` et `/socket.io/`, ce qui évite toute configuration
+CORS côté client. Le port `3000` reste néanmoins publié pour les callbacks OAuth2 et le débogage.
+
+### 4.7 Diagramme d'activité — création d'une recette
+
+```mermaid
+flowchart TD
+    A([Utilisateur clique « Nouvelle recette »]) --> B[Saisie du formulaire]
+    B --> C{Cookbook sélectionné ?}
+    C -->|Non| D["POST /api/recipes<br/>cookbookId absent"]
+    C -->|Oui| E["POST /api/recipes<br/>cookbookId fourni"]
+
+    E --> F{"Rôle ≥ EDITOR<br/>dans ce cookbook ?"}
+    F -->|Non| G[403 Insufficient permissions]
+    F -->|Oui| H
+
+    D --> H["Validation Zod<br/>chaînes vides et NaN → null"]
+    H --> I{Entrées valides ?}
+    I -->|Non| J[400 + erreurs par champ]
+    I -->|Oui| K["Canonicalisation<br/>upsert ingrédients et tags"]
+    K --> L["isPersonal dérivé de cookbookId"]
+    L --> M[INSERT Recipe + relations]
+    M --> N{Photo fournie ?}
+    N -->|Oui| O["POST /api/recipes/:id/image<br/>UUID + volume dédié"]
+    N -->|Non| P
+    O --> P([201 → redirection vers la fiche])
 ```
 
 ---
-
 ## 5. Schéma de la base de données
 
-```sql
--- Utilisateurs
-users (id, email, username, passwordHash, avatar, createdAt, updatedAt)
-oauth_accounts (id, userId, provider, providerId, accessToken, refreshToken)
-user_preferences (id, userId, diet[], allergies[], cuisineTypes[], defaultPortions)
+### 5.1 Modèle conceptuel (entités–associations)
 
--- Cookbooks
-cookbooks (id, name, description, coverImage, createdById, createdAt, updatedAt)
-cookbook_members (id, cookbookId, userId, role[CREATOR|EDITOR|COMMENTER|READER], joinedAt)
-cookbook_invites (id, cookbookId, email, token, role, invitedById, expiresAt, usedAt)
+Aucune directive `@@map` n'est utilisée dans `schema.prisma` : **les tables portent exactement le nom
+des modèles Prisma**, en PascalCase, et doivent donc être citées entre guillemets en SQL
+(`SELECT * FROM "Recipe"`).
 
--- Recettes
-recipes (id, title, description, prepTime, cookTime, portions, sourceUrl,
-         imageUrl, isPersonal, createdById, cookbookId, createdAt, updatedAt)
-ingredients (id, name)
-recipe_ingredients (id, recipeId, ingredientId, quantity, unit, notes, orderIndex)
-recipe_steps (id, recipeId, orderIndex, description, duration)
+```mermaid
+erDiagram
+    User ||--o{ OAuthAccount : "possède"
+    User ||--o| UserPreferences : "paramètre"
+    User ||--o{ Cookbook : "crée"
+    User ||--o{ CookbookMember : "adhère"
+    User ||--o{ CookbookInvite : "émet"
+    User ||--o{ Recipe : "rédige"
+    User ||--o{ Favorite : "marque"
+    User ||--o{ MealPlan : "planifie"
+    User ||--o{ Comment : "commente"
+    User ||--o{ Message : "publie"
 
--- Tags
-tags (id, name, type[CATEGORY|DIET|DIFFICULTY|CUISINE|CUSTOM])
-recipe_tags (recipeId, tagId)
+    Cookbook ||--|{ CookbookMember : "regroupe"
+    Cookbook ||--o{ CookbookInvite : "propose"
+    Cookbook ||--o{ Recipe : "contient"
+    Cookbook ||--o{ Message : "héberge"
+    Cookbook ||--o{ MealPlan : "partage"
 
--- Social
-favorites (userId, recipeId, createdAt)
-comments (id, recipeId, userId, content, createdAt, updatedAt)
-messages (id, cookbookId, userId, content, createdAt)
+    Recipe ||--|{ RecipeIngredient : "compose"
+    Recipe ||--|{ RecipeStep : "détaille"
+    Recipe ||--o{ RecipeTag : "classe"
+    Recipe ||--o{ Favorite : "figure dans"
+    Recipe ||--o{ Comment : "reçoit"
+    Recipe ||--o{ MealPlanItem : "programme"
 
--- Planning
-meal_plans (id, userId, cookbookId, name, weekStart, createdAt, updatedAt)
-meal_plan_items (id, mealPlanId, recipeId, date, mealType[BREAKFAST|LUNCH|DINNER|SNACK], portions)
+    Ingredient ||--o{ RecipeIngredient : "référencé par"
+    Tag ||--o{ RecipeTag : "attribué par"
+    MealPlan ||--o{ MealPlanItem : "contient"
+
+    User {
+        String id PK
+        String email UK
+        String username UK
+        String passwordHash "nullable — absent si OAuth2 seul"
+        String avatar "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    OAuthAccount {
+        String id PK
+        String userId FK
+        String provider "google | github | microsoft"
+        String providerId
+        String accessToken "nullable"
+        String refreshToken "nullable"
+    }
+
+    UserPreferences {
+        String id PK
+        String userId FK,UK
+        String_array diet
+        String_array allergies
+        String_array cuisineTypes
+        Int defaultPortions "défaut 4"
+    }
+
+    Cookbook {
+        String id PK
+        String name
+        String description "nullable"
+        String coverImage "nullable"
+        String createdById FK
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    CookbookMember {
+        String id PK
+        String cookbookId FK
+        String userId FK
+        CookbookRole role "CREATOR | EDITOR | COMMENTER | READER"
+        DateTime joinedAt
+    }
+
+    CookbookInvite {
+        String id PK
+        String cookbookId FK
+        String email "destinataire nominatif"
+        String token UK
+        CookbookRole role
+        String invitedById FK
+        DateTime expiresAt
+        DateTime usedAt "nullable"
+        DateTime createdAt
+    }
+
+    Recipe {
+        String id PK
+        String title
+        String description "nullable"
+        Int prepTime "nullable, minutes"
+        Int cookTime "nullable, minutes"
+        Int portions "défaut 4"
+        String sourceUrl "nullable"
+        String imageUrl "nullable"
+        Boolean isPersonal "dérivé de cookbookId"
+        String createdById FK
+        String cookbookId FK "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    Ingredient {
+        String id PK
+        String name UK "forme canonique, minuscules"
+    }
+
+    RecipeIngredient {
+        String id PK
+        String recipeId FK
+        String ingredientId FK
+        Float quantity "nullable"
+        String unit "nullable"
+        String notes "nullable"
+        Int orderIndex
+    }
+
+    RecipeStep {
+        String id PK
+        String recipeId FK
+        Int orderIndex
+        String description
+        Int duration "nullable, minutes"
+    }
+
+    Tag {
+        String id PK
+        String name UK "forme canonique"
+        TagType type "CATEGORY | DIET | DIFFICULTY | CUISINE | CUSTOM"
+    }
+
+    RecipeTag {
+        String recipeId PK,FK
+        String tagId PK,FK
+    }
+
+    Favorite {
+        String userId PK,FK
+        String recipeId PK,FK
+        DateTime createdAt
+    }
+
+    MealPlan {
+        String id PK
+        String userId FK
+        String cookbookId FK "nullable"
+        String name "nullable"
+        Date weekStart "lundi de la semaine"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    MealPlanItem {
+        String id PK
+        String mealPlanId FK
+        String recipeId FK
+        Date date
+        MealType mealType "BREAKFAST | LUNCH | DINNER | SNACK"
+        Int portions "nullable — surcharge les portions de la recette"
+    }
+
+    Comment {
+        String id PK
+        String recipeId FK
+        String userId FK
+        String content
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    Message {
+        String id PK
+        String cookbookId FK
+        String userId FK
+        String content
+        DateTime createdAt
+    }
 ```
 
----
+### 5.2 Cardinalités et règles structurantes
 
+| Association | Cardinalité | Justification |
+|---|---|---|
+| `Cookbook` → `CookbookMember` | 1 → 1..N | Un cookbook a toujours au moins son créateur ; celui-ci ne peut pas le quitter. |
+| `Recipe` → `RecipeIngredient` | 1 → 1..N | Le schéma de validation impose au moins un ingrédient. |
+| `Recipe` → `RecipeStep` | 1 → 1..N | Idem pour les étapes. |
+| `Recipe` → `Cookbook` | 0..1 | Une recette sans cookbook est personnelle (`isPersonal = true`). |
+| `User` → `UserPreferences` | 1 → 0..1 | Créées à l'inscription, absentes pour les comptes anciens. |
+| `Ingredient` / `Tag` | catalogues partagés | Un même ingrédient est référencé par toutes les recettes qui l'emploient, ce qui rend le filtrage par ingrédient exact. |
+
+### 5.3 Clés et contraintes d'unicité
+
+| Table | Contrainte | Effet |
+|---|---|---|
+| `User` | `email` unique, `username` unique | Un compte par adresse ; nom d'utilisateur non ambigu. |
+| `OAuthAccount` | `(provider, providerId)` unique | Une identité de fournisseur ne peut être rattachée qu'à un seul compte. |
+| `CookbookMember` | `(cookbookId, userId)` unique | Une adhésion unique par personne et par cookbook. |
+| `CookbookInvite` | `token` unique | Le jeton identifie l'invitation. |
+| `Ingredient`, `Tag` | `name` unique | Impose la forme canonique. |
+| `RecipeTag` | clé primaire `(recipeId, tagId)` | Un tag ne peut être posé deux fois. |
+| `Favorite` | clé primaire `(userId, recipeId)` | Un favori est un fait, pas un compteur. |
+
+### 5.4 Suppressions en cascade
+
+| Suppression de | Entraîne |
+|---|---|
+| `User` | comptes OAuth, préférences, adhésions, favoris, plannings, commentaires, messages |
+| `Cookbook` | adhésions, invitations, **recettes du cookbook**, messages |
+| `Recipe` | ingrédients, étapes, tags, favoris, commentaires, **entrées de planning** |
+| `MealPlan` | ses entrées |
+
+La cascade `Recipe` → `MealPlanItem` est indispensable : sans elle, supprimer une recette déjà
+planifiée violait la contrainte de clé étrangère et échouait en erreur 500.
+
+### 5.5 Index
+
+Les index déclarés dans `schema.prisma` couvrent les colonnes de jointure et de tri
+(`Recipe.createdById`, `Recipe.cookbookId`, `Recipe.title`, `Message.createdAt`, `MealPlan.weekStart`,
+`MealPlanItem.date`, etc.).
+
+La recherche plein texte demande davantage : un `LIKE '%terme%'` ne peut exploiter aucun index
+B-tree. `server/src/config/searchIndex.ts` complète donc le schéma au démarrage, en DDL idempotente :
+
+| Objet | Rôle |
+|---|---|
+| extension `unaccent` | retire les diacritiques |
+| extension `pg_trgm` | index de trigrammes, seuls capables de servir un `LIKE` avec joker en tête |
+| fonction `supmeal_normalize(text)` | `lower(unaccent(...))`, déclarée `IMMUTABLE` pour être indexable |
+| index GIN | `Recipe.title`, `Recipe.description`, `RecipeStep.description`, `Ingredient.name`, `Tag.name` |
+
+Ces objets sortent du périmètre de `prisma db push`, qui ne sait déclarer ni extension ni index
+fonctionnel. Si les extensions ne peuvent pas être créées — base managée sans droits
+superutilisateur — le serveur émet un avertissement et la recherche retombe sur `ILIKE`, sensible
+aux accents et non indexée, sans que l'application cesse de fonctionner.
+
+---
 ## 6. Sécurité
 
 ### Authentification
@@ -437,3 +1026,193 @@ dans la colonne `users.passwordHash`, qui est nullable pour les comptes créés 
   d'exemple.
 - `.env` est exclu par `.gitignore` ; seul `.env.example`, qui ne contient que des valeurs
   d'exemple à remplacer, est versionné.
+## 7. Référence de l'API REST
+
+Toutes les routes sont préfixées par `/api`. Sauf mention contraire, elles exigent un en-tête
+`Authorization: Bearer <accessToken>`.
+
+### 7.1 Conventions
+
+**Réponse en cas de succès**
+
+```json
+{ "success": true, "data": { } }
+```
+
+**Réponse en cas d'erreur**
+
+```json
+{ "success": false, "message": "Validation error", "errors": { "title": ["Required"] } }
+```
+
+**Codes employés**
+
+| Code | Signification |
+|---|---|
+| `200` | Succès |
+| `201` | Ressource créée |
+| `400` | Entrée invalide — `errors` détaille les champs fautifs |
+| `401` | Jeton absent, invalide ou expiré |
+| `403` | Authentifié mais droits insuffisants |
+| `404` | Ressource inexistante ou hors du périmètre visible |
+| `409` | Conflit — unicité violée, ou ressource encore référencée |
+| `503` | Fournisseur OAuth2 non configuré sur ce déploiement |
+
+**Limitation de débit** — 20 requêtes / 15 min sur `/api/auth`, 500 requêtes / 15 min ailleurs.
+
+**Pagination** — les listes paginées renvoient
+`{ items, total, page, limit, totalPages }`. `limit` est plafonné à 50.
+
+### 7.2 Authentification — `/api/auth`
+
+| Méthode | Chemin | Auth | Description |
+|---|---|:---:|---|
+| `POST` | `/register` | — | Inscription. Corps : `email`, `username` (3–30, alphanumérique), `password` (≥ 8). Renvoie l'utilisateur et les deux jetons. |
+| `POST` | `/login` | — | Connexion. Corps : `email`, `password`. |
+| `POST` | `/refresh` | — | Échange un `refreshToken` contre une nouvelle paire de jetons. |
+| `GET` | `/providers` | — | Fournisseurs OAuth2 réellement configurés : `{ providers: ["google", "github"] }`. |
+| `POST` | `/link/:provider` | ✔ | Prépare le rattachement d'un fournisseur au compte courant. Renvoie une URL d'autorisation portant un `state` signé (10 min). |
+| `GET` | `/google` · `/github` · `/microsoft` | — | Démarre le flux OAuth2. `503` si le fournisseur n'est pas configuré. |
+| `GET` | `/google/callback` · `/github/callback` · `/microsoft/callback` | — | Retour du fournisseur. Redirige vers `CLIENT_URL/oauth/callback` avec les jetons, ou vers `/login?error=oauth&reason=…` en cas d'échec. |
+
+### 7.3 Compte utilisateur — `/api/users`
+
+| Méthode | Chemin | Description |
+|---|---|---|
+| `GET` | `/me` | Profil, préférences et fournisseurs liés. |
+| `GET` | `/me/stats` | Compteurs du tableau de bord : `recipes`, `cookbooks`, `favorites`, `plannedThisWeek`. |
+| `PATCH` | `/me` | Modifie `username` et/ou `avatar`. `409` si le nom est déjà pris. |
+| `POST` | `/me/change-password` | Corps : `currentPassword`, `newPassword` (≥ 8). `400` pour un compte sans mot de passe (OAuth2 seul). |
+| `PATCH` | `/me/preferences` | `diet[]`, `allergies[]`, `cuisineTypes[]`, `defaultPortions`. |
+| `DELETE` | `/me/oauth/:provider` | Dissocie un fournisseur. `400` si c'est le dernier moyen de connexion. |
+
+### 7.4 Recettes — `/api/recipes`
+
+| Méthode | Chemin | Description |
+|---|---|---|
+| `GET` | `/` | Recherche et filtrage. Paramètres ci-dessous. |
+| `POST` | `/` | Création. Au moins un ingrédient et une étape. `isPersonal` est **dérivé** de `cookbookId` et refusé s'il est fourni. |
+| `GET` | `/:id` | Détail, avec `isFavorite`, `comments` et `permissions.canEdit` / `canDelete`. |
+| `PUT` | `/:id` | Modification. Ingrédients, étapes et tags sont **remplacés en bloc**. |
+| `DELETE` | `/:id` | Suppression. Entraîne ses entrées de planning. |
+| `POST` | `/:id/image` | Téléversement `multipart/form-data`, champ `image`. Extensions autorisées, 5 Mo maximum. |
+| `POST` | `/:id/favorite` | Marque comme favorite. |
+| `DELETE` | `/:id/favorite` | Retire des favoris. |
+| `GET` | `/:id/comments` | Commentaires. Réservé aux personnes ayant accès à la recette. |
+| `POST` | `/:id/comments` | Ajoute un commentaire (≤ 2000 caractères). Refusé au rôle `READER`. |
+| `DELETE` | `/:recipeId/comments/:commentId` | Supprime son propre commentaire. |
+
+**Paramètres de `GET /api/recipes`**
+
+| Paramètre | Type | Effet |
+|---|---|---|
+| `q` | texte | Recherche plein texte sur titre, description, **étapes**, ingrédients et tags. Insensible à la casse **et aux accents**. |
+| `cookbookId` | id | Restreint à un cookbook — c'est la barre de recherche propre au cookbook (§2.2.2). |
+| `tags` | liste séparée par virgules | Recettes portant l'un des tags. |
+| `ingredients` | liste séparée par virgules | Correspondance partielle, insensible à la casse. |
+| `maxPrepTime` | entier | `prepTime ≤ valeur`. |
+| `maxCookTime` | entier | `cookTime ≤ valeur`. |
+| `favorites` | `true` | Favoris de l'appelant uniquement. |
+| `page`, `limit` | entiers | Pagination ; `limit` ≤ 50. |
+
+Les critères se combinent en conjonction. Le filtre de visibilité est appliqué séparément et ne peut
+être ni écrasé ni contourné : une recette personnelle n'appartient qu'à son auteur, une recette de
+cookbook n'est visible que par les membres de ce cookbook.
+
+### 7.5 Cookbooks — `/api/cookbooks`
+
+| Méthode | Chemin | Rôle requis | Description |
+|---|---|:---:|---|
+| `GET` | `/` | — | Cookbooks de l'utilisateur, chacun avec `myRole` et `permissions`. |
+| `POST` | `/` | — | Création ; l'auteur devient `CREATOR`. |
+| `GET` | `/:id` | `READER` | Détail avec la liste des membres. |
+| `PATCH` | `/:id` | `EDITOR` | Modifie nom et description. |
+| `POST` | `/:id/cover` | `EDITOR` | Image de couverture (`multipart`, champ `image`). |
+| `DELETE` | `/:id` | `CREATOR` | Supprime le cookbook **et ses recettes**. |
+| `POST` | `/:id/invite` | `CREATOR` | Invitation nominative. Corps : `email`, `role`. Renvoie un `token` valable 7 jours. |
+| `POST` | `/join/:token` | — | Accepte une invitation. `403` si l'adresse du compte ne correspond pas à celle invitée. |
+| `PATCH` | `/:id/members/:userId` | `CREATOR` | Change le rôle. Le rôle `CREATOR` n'est pas attribuable. |
+| `DELETE` | `/:id/members/:userId` | `CREATOR` | Retire un membre. |
+| `DELETE` | `/:id/leave` | — | Quitter. Refusé au créateur. |
+| `GET` | `/:cookbookId/messages` | `READER` | Historique du chat. `limit` ≤ 100, `before` pour paginer. |
+
+**Droits par rôle** (renvoyés dans `permissions`)
+
+| | `CREATOR` | `EDITOR` | `COMMENTER` | `READER` |
+|---|:---:|:---:|:---:|:---:|
+| Consulter les recettes | ✔ | ✔ | ✔ | ✔ |
+| Lire le chat | ✔ | ✔ | ✔ | ✔ |
+| Commenter / écrire dans le chat | ✔ | ✔ | ✔ | — |
+| Créer et modifier des recettes | ✔ | ✔ | — | — |
+| Gérer les membres et invitations | ✔ | — | — | — |
+| Supprimer le cookbook | ✔ | — | — | — |
+
+### 7.6 Catalogues — `/api/tags`
+
+| Méthode | Chemin | Description |
+|---|---|---|
+| `GET` | `/` | Tags, filtrables par `type`. |
+| `POST` | `/` | Crée ou réutilise un tag. Corps : `name`, `type`. |
+| `GET` | `/ingredients` | Autocomplétion. `q` pour filtrer, `limit` ≤ 50. |
+
+### 7.7 Planification — `/api/meal-plans`
+
+| Méthode | Chemin | Description |
+|---|---|---|
+| `GET` | `/` | Plannings de l'utilisateur. |
+| `GET` | `/week?offset=N` | Semaine relative (`0` courante, `-1` précédente). Renvoie `weekStart`, `weekEnd`, les 7 `days`, `today`, un `defaultName` et le `plan` s'il existe. |
+| `POST` | `/schedule` | Planifie une recette à une date : le serveur résout la semaine et crée le planning au besoin. Corps : `recipeId`, `date`, `mealType`, `portions?`, `planName?`. |
+| `POST` | `/` | Crée un planning. Corps : `weekStart` (`YYYY-MM-DD`), `name?`, `cookbookId?`. |
+| `GET` | `/:id` | Détail d'un planning. |
+| `DELETE` | `/:id` | Supprime un planning et ses entrées. |
+| `POST` | `/:id/items` | Ajoute une entrée à un planning existant. |
+| `DELETE` | `/:id/items/:itemId` | Retire une entrée. La suppression est cantonnée au planning indiqué. |
+| `GET` | `/:id/shopping-list` | Liste de courses agrégée : `[{ name, totalQuantity, unit, notes[] }]`. |
+
+L'agrégation regroupe par couple (ingrédient, unité), l'unité étant normalisée pour la comparaison —
+`g` et `G` fusionnent. Aucune conversion entre unités différentes n'est tentée : 200 g et 0,2 kg
+restent deux lignes.
+
+### 7.8 Portabilité — `/api/export` et `/api/import`
+
+| Méthode | Chemin | Description |
+|---|---|---|
+| `GET` | `/api/export?format=json` | Export complet et réimportable : recettes personnelles, celles créées dans les cookbooks de tiers dont on est encore membre, et cookbooks créés avec leurs recettes. |
+| `GET` | `/api/export?format=csv` | Tableur. Format à plat, donc partiellement lossy. |
+| `GET` | `/api/export?format=mealie` | Liste de recettes au vocabulaire schema.org, importable dans Mealie. Les cookbooks sont aplatis, Mealie n'ayant pas de notion équivalente. |
+| `POST` | `/api/import` | `multipart/form-data`, champ `file`. 10 Mo maximum. Renvoie `{ recipes, cookbooks, errors[] }`. |
+
+L'import reconnaît seul le format : JSON SUPMEAL, CSV, ou export Mealie / schema.org. L'utilisateur
+devient `CREATOR` des cookbooks importés. Chaque cookbook est importé dans une transaction — il
+arrive complet ou pas du tout — tandis que les erreurs sont rapportées élément par élément afin qu'un
+fichier partiellement valide reste exploitable. Limites : 2000 recettes, 200 cookbooks par fichier.
+
+### 7.9 Messagerie temps réel — Socket.io
+
+Point de montage `/socket.io/`, relayé par nginx avec mise à niveau WebSocket.
+
+**Connexion**
+
+```js
+io('http://localhost:8080', { auth: { token: accessToken } });
+```
+
+Le jeton est vérifié au *handshake* ; une connexion sans jeton valide est refusée.
+
+| Sens | Événement | Charge utile | Description |
+|---|---|---|---|
+| → | `cookbook:join` | `cookbookId` | Rejoint le salon. Refusé si l'on n'est pas membre. |
+| → | `cookbook:leave` | `cookbookId` | Quitte le salon. |
+| → | `cookbook:sendMessage` | `{ cookbookId, content }` | Publie un message. Refusé au rôle `READER`. |
+| ← | `cookbook:message` | `{ id, cookbookId, userId, username, avatar, content, createdAt }` | Diffusé à tout le salon, expéditeur compris. |
+| ← | `cookbook:joined` / `cookbook:left` | `{ userId, username }` | Arrivée ou départ d'un membre. |
+| ← | `error` | `string` | Motif du refus. |
+
+### 7.10 Divers
+
+| Méthode | Chemin | Auth | Description |
+|---|---|:---:|---|
+| `GET` | `/api/health` | — | Sonde de vivacité : `{ success, status, timestamp }`. |
+| `GET` | `/uploads/recipes/:file` | — | Image de recette. Servie en statique, relayée par nginx. |
+
+---

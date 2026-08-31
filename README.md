@@ -61,5 +61,6 @@ npm run dev               # :5173, proxy Vite vers :3000
 
 - [Documentation technique](docs/documentation-technique.md) — configuration, déploiement,
   choix technologiques, diagrammes UML, schéma de base de données, sécurité.
+- [Charte graphique](docs/charte-graphique.md) — identité visuelle, palette, typographie, règles de composants et d'accessibilité.
 - [Manuel utilisateur](docs/manuel-utilisateur.md) — prise en main et présentation des
   fonctionnalités.
