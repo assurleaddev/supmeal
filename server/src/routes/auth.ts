@@ -123,6 +123,18 @@ function oauthCallback(req: Request, res: Response) {
   res.redirect(authService.buildOAuthRedirect(user));
 }
 
+/**
+ * Un échec pendant l'échange de jeton (fournisseur injoignable, secret révoqué, identité déjà
+ * rattachée à un autre compte) survient dans une fenêtre de navigateur, pas dans un appel XHR :
+ * renvoyer un JSON d'erreur y afficherait une page brute. L'utilisateur est ramené sur l'écran de
+ * connexion avec un motif exploitable.
+ */
+function oauthFailure(err: Error, _req: Request, res: Response, _next: NextFunction) {
+  console.error('[OAUTH]', err.message);
+  const reason = encodeURIComponent(err.message.slice(0, 150));
+  res.redirect(`${env.CLIENT_URL}/login?error=oauth&reason=${reason}`);
+}
+
 const SCOPES: Record<OAuthProvider, string[]> = {
   google: ['profile', 'email'],
   github: ['user:email'],
@@ -153,6 +165,7 @@ for (const provider of OAUTH_PROVIDERS) {
       failureRedirect: `${env.CLIENT_URL}/login?error=oauth`,
     } as any),
     oauthCallback,
+    oauthFailure,
   );
 }
 

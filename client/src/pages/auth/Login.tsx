@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { Box, Paper, Typography, Stack } from '@mui/material';
@@ -16,7 +16,15 @@ interface LoginForm {
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setAuth } = useAuthStore();
+
+  // Le serveur renvoie ici après un échec OAuth2, avec le motif en clair.
+  useEffect(() => {
+    if (searchParams.get('error') !== 'oauth') return;
+    const reason = searchParams.get('reason');
+    toast.error(reason ? `Connexion OAuth2 échouée : ${reason}` : 'Connexion OAuth2 échouée', { duration: 6000 });
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();

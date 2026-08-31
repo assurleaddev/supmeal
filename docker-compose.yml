@@ -40,6 +40,13 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       OAUTH_CALLBACK_BASE: ${OAUTH_CALLBACK_BASE:-http://localhost:3000}
+    # Le résolveur DNS embarqué de Docker ne relaie pas toujours les requêtes externes selon la
+    # configuration réseau de l'hôte, ce qui fait échouer l'échange de jeton avec les fournisseurs
+    # OAuth2 (getaddrinfo EAI_AGAIN). Des résolveurs publics explicites évitent d'en dépendre.
+    # La résolution des noms de services (postgres, client) reste assurée par Docker.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     volumes:
       - uploads_data:/app/uploads
     ports:
