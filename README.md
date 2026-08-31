@@ -57,6 +57,16 @@ cd client && npm install
 npm run dev               # :5173, proxy Vite vers :3000
 ```
 
+## Constitution du rendu
+
+```bash
+node scripts/package-rendu.mjs   # -> dist-rendu/SUPMEAL.zip
+```
+
+L'archive est bâtie depuis `git archive` : elle ne contient que les fichiers suivis, donc ni
+`.env`, ni `node_modules`, ni artefacts de build. Le script refuse de tourner sur un arbre sale et
+vérifie l'absence de secret avant d'écrire.
+
 ## Documentation
 
 - [Documentation technique](docs/documentation-technique.md) — configuration, déploiement,

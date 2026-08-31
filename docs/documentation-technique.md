@@ -1245,3 +1245,39 @@ Le jeton est vérifié au *handshake* ; une connexion sans jeton valide est refu
 | `GET` | `/uploads/recipes/:file` | — | Image de recette. Servie en statique, relayée par nginx. |
 
 ---
+
+---
+
+## 8. Constitution du rendu
+
+### Archive
+
+```bash
+node scripts/package-rendu.mjs
+```
+
+Produit `dist-rendu/SUPMEAL.zip` à partir de `git archive` : l'archive ne contient donc **que les
+fichiers suivis par Git**, et tout ce que `.gitignore` écarte en est absent par construction —
+`.env` et ses secrets, `node_modules`, les artefacts de build, les images téléversées, les dossiers
+d'outillage local.
+
+Avant d'écrire l'archive, le script :
+
+1. refuse de s'exécuter si des modifications ne sont pas committées, l'archive ne refléterait pas le dépôt ;
+2. vérifie que `.env`, `node_modules`, les sorties de build et les uploads ne sont pas suivis ;
+3. inspecte chaque fichier texte suivi à la recherche d'identifiants Google, de secrets Google,
+   d'identifiants et secrets OAuth GitHub, de clés privées, de jetons GitHub et de clés API Google.
+   `.env.example` est exempté : ses valeurs sont des exemples par construction.
+
+> **Ne pas compresser le dossier de travail à la main.** `.env` y contient les secrets OAuth réels,
+> ce que le sujet sanctionne d'un malus proportionnel à la criticité du secret exposé.
+
+### Dépôt Git
+
+Le dépôt doit être **privé pendant la réalisation** et **passé en public au moment du rendu** sur
+Moodle.
+
+```bash
+git remote add origin https://github.com/<compte>/SUPMEAL.git
+git push -u origin main
+```
