@@ -2,6 +2,7 @@ import { CookbookRole, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
+import { canonicalName } from '../utils/text';
 import {
   optionalPositiveInt,
   optionalPositiveNumber,
@@ -142,20 +143,17 @@ async function findRecipeOrFail(id: string) {
 // Canonicalisation
 // ─────────────────────────────────────────
 
-/**
- * Ingrédients et tags sont partagés entre toutes les recettes : ils sont ramenés à une forme
- * canonique (minuscules, sans espaces superflus) pour que « Tomate » et « tomate  » désignent la
- * même ligne, condition nécessaire au filtrage par ingrédient.
- */
-const canonical = (value: string) => value.toLowerCase().trim();
+// Ingrédients et tags sont des catalogues partagés entre toutes les recettes : chaque libellé est
+// ramené à sa forme canonique avant l'upsert, sinon « Tomate » et « tomate » créeraient deux
+// lignes et le filtrage par ingrédient deviendrait faux.
 
 function upsertIngredients(names: string[]) {
   return Promise.all(
     names.map((name) =>
       prisma.ingredient.upsert({
-        where: { name: canonical(name) },
+        where: { name: canonicalName(name) },
         update: {},
-        create: { name: canonical(name) },
+        create: { name: canonicalName(name) },
       }),
     ),
   );
@@ -165,9 +163,9 @@ function upsertTags(names: string[]) {
   return Promise.all(
     names.map((name) =>
       prisma.tag.upsert({
-        where: { name: canonical(name) },
+        where: { name: canonicalName(name) },
         update: {},
-        create: { name: canonical(name) },
+        create: { name: canonicalName(name) },
       }),
     ),
   );
