@@ -132,6 +132,25 @@ async function assertCanWrite(
   throw new AppError('Access denied', 403);
 }
 
+/**
+ * Droits d'écriture de l'appelant sur une recette, sous forme booléenne.
+ *
+ * Renvoyés avec la recette pour que le client affiche ou masque « Modifier » et « Supprimer » sans
+ * réimplémenter la règle. Il testait auparavant `createdById === user.id`, ce qui privait les
+ * EDITOR d'un cookbook des actions que le serveur leur accorde pourtant.
+ */
+async function canWrite(
+  recipe: { createdById: string; cookbookId: string | null },
+  userId: string,
+): Promise<boolean> {
+  try {
+    await assertCanWrite(recipe, userId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function assertCanAddToCookbook(cookbookId: string, userId: string): Promise<void> {
   const member = await getMembership(cookbookId, userId);
   if (!member || !WRITE_ROLES.includes(member.role)) {
@@ -299,7 +318,13 @@ export async function getRecipe(id: string, userId: string) {
   await assertCanRead(recipe, userId);
 
   const { favorites, ...rest } = recipe;
-  return { ...rest, isFavorite: favorites.length > 0 };
+  const writable = await canWrite(recipe, userId);
+
+  return {
+    ...rest,
+    isFavorite: favorites.length > 0,
+    permissions: { canEdit: writable, canDelete: writable },
+  };
 }
 
 export async function createRecipe(userId: string, input: RecipeInput) {

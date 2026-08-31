@@ -31,6 +31,18 @@ router.get('/week', requireAuth as any, async (req: AuthenticatedRequest, res: R
   }
 });
 
+// POST /api/meal-plans/schedule — planifie une recette, la semaine étant résolue par le serveur.
+// Déclarée avant '/:id/items' et '/:id' pour ne pas être prise pour un identifiant.
+router.post('/schedule', requireAuth as any, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const input = mealPlanService.scheduleSchema.parse(req.body);
+    const data = await mealPlanService.scheduleRecipe(req.user.id, input);
+    res.status(201).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/meal-plans
 router.post('/', requireAuth as any, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {

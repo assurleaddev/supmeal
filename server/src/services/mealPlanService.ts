@@ -2,7 +2,7 @@ import { MealType, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
-import { resolveWeek, toDateString } from '../utils/week';
+import { resolveWeek, startOfWeek, toDateString } from '../utils/week';
 import { visibleRecipeFilter } from './recipeService';
 
 /**
@@ -27,6 +27,14 @@ export const mealPlanItemSchema = z.object({
   date: isoDate,
   mealType: z.nativeEnum(MealType),
   portions: z.number().int().min(1).optional(),
+});
+
+export const scheduleSchema = z.object({
+  recipeId: z.string().min(1),
+  date: isoDate,
+  mealType: z.nativeEnum(MealType),
+  portions: z.number().int().min(1).optional(),
+  planName: z.string().max(100).optional(),
 });
 
 export const weekQuerySchema = z.object({
@@ -122,6 +130,39 @@ export function createPlan(userId: string, input: z.infer<typeof mealPlanSchema>
 export async function deletePlan(planId: string, userId: string) {
   await assertOwnsPlan(planId, userId);
   await prisma.mealPlan.delete({ where: { id: planId } });
+}
+
+/**
+ * Planifie une recette à une date donnée, en réutilisant le planning de la semaine concernée ou
+ * en le créant.
+ *
+ * Le client se contentait d'une date et recalculait lui-même le lundi de la semaine, avec un
+ * décalage systématique le dimanche ( y vaut 0, ce qui renvoyait au lundi suivant) : le
+ * repas était rattaché à la semaine d'après et n'apparaissait jamais dans sa grille. La résolution
+ * de la semaine appartient au serveur (§2.3.1).
+ */
+export async function scheduleRecipe(userId: string, input: z.infer<typeof scheduleSchema>) {
+  const weekStart = startOfWeek(new Date(input.date + 'T00:00:00Z'));
+
+  let plan = await prisma.mealPlan.findFirst({ where: { userId, weekStart } });
+
+  if (!plan) {
+    const label = weekStart.toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+    });
+    plan = await prisma.mealPlan.create({
+      data: { userId, weekStart, name: input.planName || `Semaine du ${label}` },
+    });
+  }
+
+  const item = await addItem(plan.id, userId, {
+    recipeId: input.recipeId,
+    date: input.date,
+    mealType: input.mealType,
+    portions: input.portions,
+  });
+
+  return { item, planId: plan.id, weekStart: toDateString(weekStart) };
 }
 
 export async function addItem(

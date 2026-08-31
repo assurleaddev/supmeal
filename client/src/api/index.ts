@@ -179,6 +179,10 @@ export const tagApi = {
 // ─────────────────────────────────────────
 
 export const mealPlanApi = {
+  /** Planifie une recette à une date : le serveur résout la semaine et crée le planning au besoin. */
+  schedule: (data: { recipeId: string; date: string; mealType: MealType; portions?: number; planName?: string }) =>
+    api.post<ApiResponse<{ planId: string; weekStart: string }>>('/meal-plans/schedule', data),
+
   week: (offset: number) =>
     api.get<ApiResponse<MealPlanWeek>>('/meal-plans/week', { params: { offset } }),
 

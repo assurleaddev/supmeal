@@ -98,6 +98,8 @@ export interface Recipe {
   sourceUrl?: string | null;
   imageUrl?: string | null;
   isPersonal: boolean;
+  /** Droits calculés par le serveur ; absent des listes, présent sur le détail. */
+  permissions?: RecipePermissions;
   createdById: string;
   cookbookId?: string | null;
   createdAt: string;
@@ -198,6 +200,11 @@ export interface RecipeFormData {
 }
 
 export type OAuthProvider = 'google' | 'github' | 'microsoft';
+
+export interface RecipePermissions {
+  canEdit: boolean;
+  canDelete: boolean;
+}
 
 export interface MealPlanWeek {
   weekStart: string;

@@ -44,7 +44,10 @@ export default function RecipeDetail() {
   }, [recipeData]);
 
   const recipe = recipeData;
-  const isOwner = recipe?.createdById === user?.id;
+  // Droits fournis par le serveur : un EDITOR de cookbook doit pouvoir modifier une recette dont
+  // il n'est pas l'auteur, ce que la comparaison createdById masquait (§2.3.1).
+  const canEdit = recipe?.permissions?.canEdit ?? false;
+  const canDelete = recipe?.permissions?.canDelete ?? false;
   const imageUrl = recipe?.imageUrl
     ? recipe.imageUrl.startsWith('http') ? recipe.imageUrl : `${API_URL}${recipe.imageUrl}`
     : null;
@@ -144,7 +147,7 @@ export default function RecipeDetail() {
               <Button variant="outlined" size="small" startIcon={<CalendarMonthIcon />} onClick={() => setPlanModalOpen(true)} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>
                 Planifier
               </Button>
-              {isOwner && (
+              {(canEdit || canDelete) && (
                 <>
                   <Button component={Link} to={`/recipes/${id}/edit`} variant="outlined" size="small" startIcon={<EditIcon />} color="inherit" sx={{ borderColor: 'divider', color: 'text.secondary' }}>
                     Modifier
@@ -320,16 +323,16 @@ function AddToPlanModal({ isOpen, onClose, recipeId, recipeTitle }: {
   const onSubmit = async (data: any) => {
     setLoading(true);
     try {
-      let planId = data.planId;
-      if (!planId) {
-        const weekStart = new Date(data.date);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-        const newPlan = await mealPlanApi.create({ name: data.newPlanName || `Planning semaine du ${weekStart.toLocaleDateString('fr-FR')}`, weekStart: weekStart.toISOString().split('T')[0] });
-        planId = newPlan.data.data!.id;
+      // Le serveur résout la semaine de la date choisie et réutilise ou crée le planning : aucun
+      // calcul de calendrier ici, où le dimanche était systématiquement rattaché à la semaine suivante.
+      if (data.planId) {
+        await mealPlanApi.addItem(data.planId, { recipeId, date: data.date, mealType: data.mealType as MealType, portions: Number(data.portions) });
+      } else {
+        await mealPlanApi.schedule({ recipeId, date: data.date, mealType: data.mealType as MealType, portions: Number(data.portions), planName: data.newPlanName || undefined });
       }
-      await mealPlanApi.addItem(planId, { recipeId, date: data.date, mealType: data.mealType as MealType, portions: Number(data.portions) });
       toast.success('Recette ajoutée au planning !');
       qc.invalidateQueries({ queryKey: ['meal-plans'] });
+      qc.invalidateQueries({ queryKey: ['meal-plan-week'] });
       reset();
       onClose();
     } catch (err: any) {
