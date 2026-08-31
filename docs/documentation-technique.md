@@ -1127,6 +1127,7 @@ avertissement affiché, jamais un blocage. `diet` et `cuisineTypes` restent déc
 | `POST` | `/:id/image` | Téléversement `multipart/form-data`, champ `image`. Extensions autorisées, 5 Mo maximum. |
 | `POST` | `/:id/favorite` | Marque comme favorite. |
 | `DELETE` | `/:id/favorite` | Retire des favoris. |
+| `GET` | `/suggestions` | Suggestions classées pour un créneau (§9). Paramètres : `date?`, `mealType?`, `limit?` (≤ 10). |
 | `GET` | `/:id/comments` | Commentaires. Réservé aux personnes ayant accès à la recette. |
 | `POST` | `/:id/comments` | Ajoute un commentaire (≤ 2000 caractères). Refusé au rôle `READER`. |
 | `DELETE` | `/:recipeId/comments/:commentId` | Supprime son propre commentaire. |
@@ -1290,3 +1291,146 @@ Moodle.
 git remote add origin https://github.com/<compte>/SUPMEAL.git
 git push -u origin main
 ```
+
+## 9. Suggestions intelligentes de recettes
+
+Fonctionnalité avancée du barème bonus. `GET /api/recipes/suggestions` propose des recettes pour un
+créneau donné du planning.
+
+### 9.1 Ce que le moteur n'est pas
+
+Ce n'est ni un tri par popularité, ni un tirage aléatoire, ni un appel à un service externe. Le
+classement se fait entièrement sur les données de l'application, sans dépendance réseau ni modèle
+pré-entraîné, et chaque suggestion est accompagnée de sa justification.
+
+### 9.2 Architecture
+
+| Fichier | Rôle |
+|---|---|
+| `services/suggestionEngine.ts` | Classement. **Fonctions pures**, aucun accès aux données. |
+| `services/suggestionService.ts` | Rassemble les signaux en base, traduit, délègue. |
+| `tests/suggestionEngine.test.ts` | 26 cas unitaires, sans base de données. |
+
+La séparation est ce qui rend le moteur testable : le classement reçoit des objets simples et rend un
+résultat déterministe, si bien que chaque comportement attendu peut être vérifié isolément.
+
+### 9.3 Représentation vectorielle
+
+Une recette est projetée dans un espace de termes formé de ses **ingrédients** et de ses **tags**,
+chaque terme pondéré par sa fréquence inverse de document :
+
+```
+idf(t) = ln(1 + N / (1 + df(t)))
+```
+
+Cette pondération est le cœur du dispositif. Dans un corpus de cuisine, « sel » et « poivre »
+figurent dans presque toutes les recettes et ne disent rien de la parenté entre deux plats, tandis
+que « jaunes d'œuf » ou « safran » sont très discriminants. Sur le jeu de démonstration, « poivre
+noir » apparaît dans 5 recettes sur 7 et « jaunes d'œuf » dans 2 : sans IDF, toute similarité serait
+dominée par les condiments.
+
+Le **profil de goût** est le barycentre pondéré des recettes que l'utilisateur a favorisées ou
+planifiées :
+
+- un favori pèse **3**, un repas simplement planifié **1** — le premier est un geste délibéré ;
+- l'historique décroît exponentiellement, de **demi-vie 6 semaines**, sur une profondeur de 26
+  semaines. Sans cette décroissance, un profil se figerait sur les premiers choix.
+
+L'**affinité** est la similarité cosinus entre ce profil et le vecteur de la recette, tous deux
+normalisés — donc dans `[0, 1]`.
+
+### 9.4 Les six signaux
+
+| Signal | Poids | Ce qu'il mesure |
+|---|:---:|---|
+| **Goût** | 0,34 | Similarité cosinus au profil, pondérée IDF |
+| **Économie de courses** | 0,20 | Part des ingrédients déjà requis par la semaine |
+| **Adéquation horaire** | 0,15 | Durée totale face au budget du créneau |
+| **Préférences** | 0,14 | Correspondance cuisine et régime déclarés |
+| **Renouvellement** | 0,12 | Ancienneté de la dernière planification |
+| **Popularité** | 0,05 | Favoris et commentaires, compressés en log |
+
+Les poids somment à 1, ce qui borne le score dans `[0, 1]` et le rend comparable d'une requête à
+l'autre.
+
+Le goût domine parce que c'est le seul signal réellement personnel. L'économie de courses vient
+ensuite : dans un outil de planification, réutiliser un ingrédient déjà nécessaire a une valeur
+concrète. La popularité ne pèse presque rien — elle ne sert qu'à départager un utilisateur nouveau
+dont tous les autres signaux sont muets.
+
+**Budgets de temps**, en minutes, appliqués à `prepTime + cookTime` :
+
+| Créneau | Semaine | Week-end |
+|---|:---:|:---:|
+| Petit-déjeuner | 15 | 40 |
+| Déjeuner | 30 | 75 |
+| Dîner | 50 | 120 |
+| Encas | 15 | 30 |
+
+Sous le budget, l'adéquation vaut 1 ; au-delà elle décroît en `budget / durée` plutôt que de tomber à
+zéro — une recette dix minutes trop longue reste envisageable, pas une de trois heures. Une durée non
+renseignée vaut 0,5 : ni favorisée, ni pénalisée.
+
+### 9.5 Filtres
+
+| Règle | Nature |
+|---|---|
+| Allergène déclaré présent dans les ingrédients | **Exclusion absolue** |
+| Recette déjà au planning de la semaine visée | Forte préférence, assouplissable |
+
+La correspondance des allergènes se fait par **inclusion** sur les formes canoniques : « arachide »
+écarte « beurre d'arachide », qu'une égalité stricte laisserait passer.
+
+La distinction entre les deux règles est délibérée. Un allergène relève de la sécurité et n'admet
+aucun assouplissement. Répéter un plat dans la semaine, en revanche, est légitime : si **toutes** les
+recettes éligibles sont déjà planifiées, le moteur les réintroduit en les marquant `alreadyInWeek` et
+en signalant `basis.relaxed`. Renvoyer une liste vide sans motif serait moins utile qu'un ensemble de
+répétitions annoncées comme telles.
+
+### 9.6 Diversification
+
+La sélection finale n'est pas « les N meilleurs ». Les scores les plus élevés se ressemblent souvent
+beaucoup, et proposer cinq variantes du même plat n'aide personne. Une **pertinence marginale
+maximale** retire, à chaque tour, le candidat qui maximise :
+
+```
+(1 − λ) · score − λ · max(similarité avec les candidats déjà retenus)      λ = 0,3
+```
+
+### 9.7 Justifications
+
+Chaque suggestion porte au plus trois motifs, ordonnés par **contribution réelle au score**
+(`poids × signal`) et non par valeur brute du signal. Un signal en dessous de 0,25 n'est pas invoqué.
+
+Les formulations sont fidèles au calcul : le motif horaire annonce « compatible avec ce créneau »
+uniquement lorsque l'adéquation vaut 1, et « un peu long pour ce créneau » sinon. Le même plat de
+75 minutes est donc décrit comme trop long un mardi et compatible un dimanche — deux verdicts
+opposés, tous deux exacts.
+
+Une suggestion inexpliquée ne se distingue pas d'un tirage au hasard : la justification n'est pas un
+ornement, c'est ce qui rend la fonctionnalité utilisable.
+
+### 9.8 Interprétabilité de la réponse
+
+`basis` expose ce sur quoi le classement s'est appuyé : taille du corpus, nombre de favoris,
+profondeur d'historique, ingrédients déjà prévus, allergies déclarées, et si les contraintes ont été
+desserrées. Le champ `breakdown` de chaque suggestion donne les six signaux séparément, ce qui permet
+de comprendre un classement sans lire le code.
+
+### 9.9 Coût et limites
+
+Le classement est linéaire en taille de corpus, mais IDF et diversification imposent de tout charger
+en mémoire : le corpus est donc **plafonné à 500 recettes**. Au-delà, il faudrait précalculer et
+stocker les vecteurs.
+
+Limites assumées :
+
+- **Démarrage à froid** — sans favori ni historique, l'affinité est nulle et le classement repose sur
+  le temps, les préférences déclarées et la popularité. C'est le rôle de ce dernier signal.
+- **Aucune saisonnalité** — les recettes ne portent pas d'information de saison.
+- **Aucun filtrage collaboratif** — pas de « les utilisateurs qui aiment X aiment aussi Y ». Le
+  volume de données d'un déploiement de cette taille ne le permettrait pas de façon fiable.
+- **Le régime n'est pas une contrainte dure** — un tag `vegan` déclaré en préférence favorise les
+  recettes correspondantes sans exclure les autres, contrairement aux allergies.
+
+---

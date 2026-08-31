@@ -4,6 +4,7 @@ import { uploadRecipeImage } from '../middleware/upload';
 import { AppError } from '../middleware/error';
 import { AuthenticatedRequest } from '../types';
 import * as recipeService from '../services/recipeService';
+import * as suggestionService from '../services/suggestionService';
 
 /**
  * Adaptateur HTTP des recettes : extraction des paramètres, appel du service, mise en forme de la
@@ -29,6 +30,18 @@ router.post('/', requireAuth as any, async (req: AuthenticatedRequest, res: Resp
     const input = recipeService.recipeSchema.parse(req.body);
     const recipe = await recipeService.createRecipe(req.user.id, input);
     res.status(201).json({ success: true, data: recipe });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/recipes/suggestions — suggestions intelligentes pour un créneau donné.
+// Déclarée avant '/:id' : sans cela, « suggestions » serait pris pour un identifiant de recette.
+router.get('/suggestions', requireAuth as any, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const query = suggestionService.suggestionQuerySchema.parse(req.query);
+    const data = await suggestionService.suggestRecipes(req.user.id, query);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

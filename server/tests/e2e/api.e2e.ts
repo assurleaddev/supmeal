@@ -344,6 +344,116 @@ async function main() {
   await request('DELETE', `/api/cookbooks/${planCookbookId}`, { token: alice.token });
 
   // ───────────────────────────────────────
+  section('Suggestions intelligentes');
+
+  const suggestFor = (params: string, token: string) =>
+    request('GET', `/api/recipes/suggestions?${params}`, { token });
+
+  const dinner = await suggestFor('date=2026-11-03&mealType=DINNER&limit=3', alice.token);
+  expect('suggestions renvoyées', dinner.status === 200 && Array.isArray(dinner.body?.data?.suggestions));
+  expect('le contexte est résolu par le serveur', dinner.body?.data?.context?.weekStart === '2026-11-02');
+  expect('les bases du classement sont exposées', typeof dinner.body?.data?.basis?.corpusSize === 'number');
+  expect(
+    'chaque suggestion est justifiée et bornée',
+    (dinner.body?.data?.suggestions ?? []).every(
+      (s: any) => s.reasons.length > 0 && s.score >= 0 && s.score <= 1,
+    ),
+  );
+  expect(
+    'le classement est décroissant',
+    (dinner.body?.data?.suggestions ?? []).every(
+      (s: any, i: number, all: any[]) => i === 0 || all[i - 1].score >= s.score,
+    ),
+  );
+
+  // Le créneau doit changer le résultat : un petit-déjeuner de semaine dispose de bien moins de temps.
+  const scoreOf = (reply: Reply, title: string) =>
+    (reply.body?.data?.suggestions ?? []).find((s: any) => s.title === title)?.score;
+
+  expect('le week-end est détecté', (await suggestFor('date=2026-11-08&mealType=DINNER', alice.token)).body?.data?.context?.weekend === true);
+  expect('un jour de semaine aussi', dinner.body?.data?.context?.weekend === false);
+
+  // Un plat long et daté, pour que la comparaison entre créneaux soit déterministe : une recette
+  // sans durée renseignée obtient volontairement le même score partout.
+  const longRecipe = await request('POST', '/api/recipes', {
+    token: alice.token,
+    body: {
+      title: `Pot-au-feu ${stamp}`,
+      prepTime: 30,
+      cookTime: 150,
+      ingredients: [{ name: 'boeuf', quantity: 1, unit: 'kg', orderIndex: 0 }],
+      steps: [{ description: 'Mijoter longuement', orderIndex: 0 }],
+    },
+  });
+  const longRecipeId = longRecipe.body?.data?.id as string;
+  const longTitle = `Pot-au-feu ${stamp}`;
+
+  const atDinner = scoreOf(
+    await suggestFor('date=2026-11-03&mealType=DINNER&limit=10', alice.token),
+    longTitle,
+  );
+  const atBreakfast = scoreOf(
+    await suggestFor('date=2026-11-03&mealType=BREAKFAST&limit=10', alice.token),
+    longTitle,
+  );
+  const atSunday = scoreOf(
+    await suggestFor('date=2026-11-08&mealType=DINNER&limit=10', alice.token),
+    longTitle,
+  );
+
+  expect(
+    'un plat de 3 h vaut mieux un dîner qu un petit-déjeuner de semaine',
+    atDinner > atBreakfast,
+    `dîner ${atDinner} vs petit-déjeuner ${atBreakfast}`,
+  );
+  expect(
+    'et mieux encore un dîner de week-end',
+    atSunday > atDinner,
+    `dimanche ${atSunday} vs mardi ${atDinner}`,
+  );
+
+  await request('DELETE', `/api/recipes/${longRecipeId}`, { token: alice.token });
+
+  // Un allergène déclaré doit faire disparaître la recette qui le contient.
+  const allergenRecipe = await request('POST', '/api/recipes', {
+    token: alice.token,
+    body: {
+      title: 'Tarte aux noisettes',
+      ingredients: [{ name: 'noisette', quantity: 200, unit: 'g', orderIndex: 0 }],
+      steps: [{ description: 'Mélanger', orderIndex: 0 }],
+    },
+  });
+  const allergenRecipeId = allergenRecipe.body?.data?.id as string;
+
+  const beforeAllergy = await suggestFor('date=2026-11-03&mealType=DINNER&limit=10', alice.token);
+  expect(
+    'la recette apparaît avant déclaration d allergie',
+    (beforeAllergy.body?.data?.suggestions ?? []).some((s: any) => s.recipeId === allergenRecipeId),
+  );
+
+  await request('PATCH', '/api/users/me/preferences', {
+    token: alice.token,
+    body: { allergies: ['noisette'] },
+  });
+
+  const afterAllergy = await suggestFor('date=2026-11-03&mealType=DINNER&limit=10', alice.token);
+  expect(
+    'elle disparaît dès que l allergène est déclaré',
+    !(afterAllergy.body?.data?.suggestions ?? []).some((s: any) => s.recipeId === allergenRecipeId),
+  );
+
+  await request('PATCH', '/api/users/me/preferences', { token: alice.token, body: { allergies: [] } });
+  await request('DELETE', `/api/recipes/${allergenRecipeId}`, { token: alice.token });
+
+  expect('limite hors bornes refusée', (await suggestFor('limit=99', alice.token)).status === 400);
+  expect('date malformée refusée', (await suggestFor('date=pas-une-date', alice.token)).status === 400);
+  expect('créneau inconnu refusé', (await suggestFor('mealType=BRUNCH', alice.token)).status === 400);
+  expect(
+    'suggestions inaccessibles sans session',
+    (await request('GET', '/api/recipes/suggestions')).status === 401,
+  );
+
+  // ───────────────────────────────────────
   section('Export et import');
 
   const exportJson = await request('GET', '/api/export?format=json', { token: alice.token });

@@ -9,6 +9,7 @@ import {
   MealPlan,
   MealPlanItem,
   MealPlanWeek,
+  SuggestionResponse,
   OAuthProvider,
   MealType,
   Message,
@@ -132,6 +133,10 @@ export interface RecipeFilters {
 }
 
 export const recipeApi = {
+  /** Suggestions classées pour un créneau : le serveur pondère goût, courses, temps et nouveauté. */
+  suggestions: (params: { date?: string; mealType?: MealType; limit?: number }) =>
+    api.get<ApiResponse<SuggestionResponse>>('/recipes/suggestions', { params }),
+
   list: (filters?: RecipeFilters) =>
     api.get<ApiResponse<PaginatedResponse<Recipe>>>('/recipes', { params: filters }),
 

@@ -210,6 +210,32 @@ export interface RecipePermissions {
   canDelete: boolean;
 }
 
+export type SuggestionCode =
+  | 'taste' | 'pantry' | 'timing' | 'novelty' | 'preference' | 'popularity' | 'repeat';
+
+export interface RecipeSuggestion {
+  recipeId: string;
+  title: string;
+  score: number;
+  breakdown: Record<Exclude<SuggestionCode, 'repeat'>, number>;
+  reasons: { code: SuggestionCode; label: string }[];
+  alreadyInWeek?: boolean;
+}
+
+export interface SuggestionResponse {
+  context: { date: string; mealType: MealType; weekend: boolean; weekStart: string };
+  suggestions: RecipeSuggestion[];
+  basis: {
+    corpusSize: number;
+    favorites: number;
+    plannedHistory: number;
+    ingredientsAlreadyNeeded: number;
+    allergiesExcluded: number;
+    hasDeclaredPreferences: boolean;
+    relaxed: boolean;
+  };
+}
+
 export interface MealPlanWeek {
   weekStart: string;
   weekEnd: string;

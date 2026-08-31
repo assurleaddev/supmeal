@@ -168,6 +168,23 @@ Sans sélection, le planning reste personnel et n'est visible que de vous.
 1. Page **"Planning"** → **"Créer le planning de la semaine"**
 2. La semaine en cours est automatiquement sélectionnée
 
+### Suggestions pour un créneau
+
+Quand vous cliquez sur **+** dans une case du planning, SUPMEAL propose d'abord trois recettes
+adaptées à ce créneau, chacune accompagnée de la raison pour laquelle elle est proposée :
+
+- **« Proche des recettes que vous aimez »** — d'après vos favoris et ce que vous avez déjà cuisiné
+- **« 60 % de ses ingrédients sont déjà prévus cette semaine »** — pour limiter les courses
+- **« Tient en 30 min, compatible avec ce créneau »** — un petit-déjeuner de semaine dispose de moins
+  de temps qu'un dîner du dimanche
+- **« Vous ne l'avez pas cuisinée depuis longtemps »** — pour varier
+
+Les recettes contenant un ingrédient correspondant à une **allergie déclarée** dans vos préférences
+ne sont jamais proposées. Celles déjà au planning de la semaine sont écartées ; si toutes le sont,
+elles réapparaissent en portant la mention « déjà prévue ».
+
+La recherche manuelle reste disponible juste en dessous.
+
 ### Ajouter une recette au planning
 
 - Cliquez sur **"+"** dans une case du calendrier (jour × repas)

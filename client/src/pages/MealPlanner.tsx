@@ -14,6 +14,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import GroupsIcon from '@mui/icons-material/Groups';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { mealPlanApi, recipeApi, cookbookApi } from '../api';
 import { MealType, MealPlanItem, Recipe } from '../types';
 import { Modal } from '../components/ui/Modal';
@@ -72,6 +73,17 @@ export default function MealPlanner() {
     enabled: shoppingListOpen && Boolean(currentPlan?.id),
   });
 
+  // Les suggestions dépendent du créneau : le serveur y ajuste le budget de temps, écarte les
+  // allergènes déclarés et privilégie les ingrédients déjà prévus dans la semaine.
+  const { data: suggestionData, isFetching: suggesting } = useQuery({
+    queryKey: ['suggestions', addItemTarget?.date, addItemTarget?.mealType],
+    queryFn: () =>
+      recipeApi
+        .suggestions({ date: addItemTarget!.date, mealType: addItemTarget!.mealType, limit: 3 })
+        .then((r) => r.data.data!),
+    enabled: addItemOpen && Boolean(addItemTarget),
+  });
+
   const { data: recipesData } = useQuery({
     queryKey: ['recipes', { q: recipeSearch, limit: 10 }],
     queryFn: () => recipeApi.list({ q: recipeSearch || undefined, limit: 10 }).then((r) => r.data.data!),
@@ -90,6 +102,21 @@ export default function MealPlanner() {
       refreshPlanning();
       toast.success('Planning créé !');
     } catch { toast.error('Erreur'); }
+  };
+
+  /**
+   * Une suggestion ne porte que l'identifiant et le titre. La sélection a besoin de l'objet complet,
+   * qu'on récupère au besoin plutôt que de faire renvoyer la recette entière par les suggestions.
+   */
+  const pickSuggestion = async (recipeId: string) => {
+    const known = recipesData?.items.find((r) => r.id === recipeId);
+    if (known) { setSelectedRecipe(known); return; }
+    try {
+      const { data } = await recipeApi.get(recipeId);
+      setSelectedRecipe(data.data!);
+    } catch {
+      toast.error('Recette introuvable');
+    }
   };
 
   const handleAddItem = async () => {
@@ -275,6 +302,71 @@ export default function MealPlanner() {
             <Typography variant="body2" color="text.secondary">
               {MEAL_ICONS[addItemTarget.mealType]} {MEAL_LABELS[addItemTarget.mealType]} — <strong>{format(addItemTarget.date, 'EEEE d MMMM', { locale: fr })}</strong>
             </Typography>
+          )}
+
+          {/* Suggestions : proposées d'abord, la recherche manuelle reste juste en dessous. */}
+          {(suggesting || (suggestionData?.suggestions.length ?? 0) > 0) && (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
+                <AutoAwesomeIcon sx={{ fontSize: 17, color: 'secondary.main' }} />
+                <Typography variant="body2" fontWeight={600}>Suggestions pour ce créneau</Typography>
+              </Box>
+
+              {suggesting && (
+                <Typography variant="caption" color="text.secondary">Analyse de vos habitudes…</Typography>
+              )}
+
+              {suggestionData?.basis.relaxed && (
+                <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                  Toutes vos recettes sont déjà au planning de la semaine — voici celles qui y figurent déjà.
+                </Typography>
+              )}
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {suggestionData?.suggestions.map((suggestion) => {
+                  const isSelected = selectedRecipe?.id === suggestion.recipeId;
+                  return (
+                    <Box
+                      key={suggestion.recipeId}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => pickSuggestion(suggestion.recipeId)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          pickSuggestion(suggestion.recipeId);
+                        }
+                      }}
+                      sx={{
+                        px: 1.5, py: 1.25, borderRadius: 2, cursor: 'pointer',
+                        border: '1px solid', borderColor: isSelected ? 'primary.main' : 'divider',
+                        bgcolor: isSelected ? 'primary.50' : 'transparent',
+                        '&:hover': { borderColor: 'primary.light' },
+                        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" fontWeight={600}>{suggestion.title}</Typography>
+                        {suggestion.alreadyInWeek && (
+                          <Chip label="déjà prévue" size="small" sx={{ height: 18, fontSize: 10 }} />
+                        )}
+                      </Box>
+                      {/* La justification est le cœur de l'intérêt : une suggestion inexpliquée
+                          ne se distingue pas d'un tirage au hasard. */}
+                      {suggestion.reasons.map((reason) => (
+                        <Typography key={reason.code} variant="caption" color="text.secondary" display="block">
+                          · {reason.label}
+                        </Typography>
+                      ))}
+                    </Box>
+                  );
+                })}
+              </Box>
+
+              <Divider sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary">ou choisir soi-même</Typography>
+              </Divider>
+            </Box>
           )}
 
           <TextField
