@@ -41,3 +41,6 @@ coverage/
 # Outils locaux, hors périmètre du projet
 .claude/
 .vscode/
+
+# Archive de rendu générée
+dist-rendu/
