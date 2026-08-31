@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Box, Typography, Paper, Grid, Chip, Button, IconButton,
-  Avatar, TextField, Divider, FormControl, InputLabel, Select, MenuItem,
+  Avatar, TextField, FormControl, InputLabel, Select,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';

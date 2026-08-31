@@ -1,7 +1,6 @@
 import { useRef } from 'react'; // used by Reveal, ParallaxBlob, SectionHeading
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Link } from 'react-router-dom';
-import HeroSection from '@/components/ui/glassmorphism-trust-hero';
 import {
   Box, Button, Typography, Container, Grid, Paper, Stack, Chip, Avatar, Divider,
 } from '@mui/material';
@@ -19,15 +18,12 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import StarIcon from '@mui/icons-material/Star';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import BoltIcon from '@mui/icons-material/Bolt';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 /* ─── Motion components ─── */
 const MotionBox = motion(Box as any);
 const MotionPaper = motion(Paper as any);
-const MotionTypography = motion(Typography as any);
 
 /* ─── Reusable scroll-reveal wrapper ─── */
 function Reveal({
@@ -118,17 +114,6 @@ const FAQS = [
 ];
 
 /* ─── Floating particles for hero ─── */
-const PARTICLES = [
-  { size: 6, x: '10%', y: '20%', color: '#bbf7d0', delay: 0, duration: 4 },
-  { size: 10, x: '85%', y: '15%', color: '#bae6fd', delay: 0.5, duration: 5 },
-  { size: 7, x: '75%', y: '70%', color: '#fed7aa', delay: 1, duration: 4.5 },
-  { size: 5, x: '20%', y: '75%', color: '#ddd6fe', delay: 1.5, duration: 3.8 },
-  { size: 8, x: '55%', y: '88%', color: '#a5f3fc', delay: 0.8, duration: 5.2 },
-  { size: 4, x: '40%', y: '10%', color: '#fde68a', delay: 0.3, duration: 4.2 },
-  { size: 9, x: '92%', y: '50%', color: '#bbf7d0', delay: 1.2, duration: 4.8 },
-  { size: 6, x: '5%', y: '50%', color: '#fce7f3', delay: 0.6, duration: 3.5 },
-];
-
 /* ─── App Mockup ─── */
 function AppMockup() {
   const cards = [
@@ -340,6 +325,118 @@ function ParallaxBlob({ top, left, right, bottom, color, size }: {
   );
 }
 
+/* ─── Hero ─── */
+/**
+ * Le hero précédent était un gabarit tiers laissé tel quel : entièrement en anglais, vantant une
+ * agence de design fictive (« Crafting Digital Experiences », clients « Acme Corp »), avec des
+ * boutons sans action et une image distante Unsplash. C'était le premier écran de l'application
+ * et son unique `<h1>`.
+ *
+ * Il est remplacé par un hero propre à SUPMEAL, en français, qui réutilise le mockup `AppMockup`
+ * resté orphelin, et pose un vrai `<h1>` pour la structure du document.
+ */
+function Hero() {
+  return (
+    <Box
+      component="section"
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        py: { xs: 8, md: 14 },
+        background: 'linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)',
+      }}
+    >
+      <ParallaxBlob top={-120} left={-140} color="radial-gradient(circle, rgba(22,163,74,0.10) 0%, transparent 65%)" size={560} />
+      <ParallaxBlob bottom={-160} right={-120} color="radial-gradient(circle, rgba(234,88,12,0.08) 0%, transparent 65%)" size={480} />
+
+      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        <Grid container spacing={{ xs: 6, md: 8 }} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <MotionBox
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Chip
+                icon={<AutoAwesomeIcon sx={{ fontSize: 16 }} />}
+                label="Gratuit, sans limite de recettes"
+                sx={{ mb: 3, bgcolor: '#dcfce7', color: '#15803d', fontWeight: 600, '& .MuiChip-icon': { color: '#15803d' } }}
+              />
+
+              <Typography
+                component="h1"
+                sx={{
+                  fontSize: { xs: '2.25rem', sm: '3rem', md: '3.5rem' },
+                  fontWeight: 800,
+                  lineHeight: 1.08,
+                  letterSpacing: '-0.03em',
+                  color: '#0f172a',
+                  mb: 2.5,
+                }}
+              >
+                Vos recettes,{' '}
+                <Box component="span" sx={{ color: '#16a34a' }}>
+                  enfin organisées
+                </Box>
+              </Typography>
+
+              <Typography sx={{ fontSize: { xs: '1.0625rem', md: '1.1875rem' }, color: '#475569', lineHeight: 1.65, mb: 4, maxWidth: 520 }}>
+                Rassemblez vos recettes, composez des livres de recettes à plusieurs, planifiez la
+                semaine et obtenez la liste de courses correspondante. Sans abonnement.
+              </Typography>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 4 }}>
+                <MotionBox whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    component={Link}
+                    to="/register"
+                    variant="contained"
+                    size="large"
+                    endIcon={<ArrowForwardIcon />}
+                    sx={{
+                      bgcolor: '#16a34a', color: 'white', fontWeight: 600, px: 3.5, py: 1.5,
+                      borderRadius: '12px', fontSize: '1rem', boxShadow: '0 4px 16px rgba(22,163,74,0.28)',
+                      '&:hover': { bgcolor: '#15803d' },
+                    }}
+                  >
+                    Créer mon compte
+                  </Button>
+                </MotionBox>
+                <Button
+                  component={Link}
+                  to="/login"
+                  variant="outlined"
+                  size="large"
+                  sx={{
+                    borderColor: '#cbd5e1', color: '#334155', fontWeight: 600, px: 3.5, py: 1.5,
+                    borderRadius: '12px', fontSize: '1rem',
+                    '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' },
+                  }}
+                >
+                  J'ai déjà un compte
+                </Button>
+              </Stack>
+
+              <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                {['Aucune carte bancaire', 'Vos données exportables', 'Hébergeable chez vous'].map((item) => (
+                  <Stack key={item} direction="row" spacing={0.75} alignItems="center">
+                    <CheckCircleOutlineIcon sx={{ fontSize: 18, color: '#16a34a' }} />
+                    <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>{item}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </MotionBox>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <AppMockup />
+          </Grid>
+        </Grid>
+      </Container>
+    </Box>
+  );
+}
+
 export default function LandingPage() {
 
   return (
@@ -403,7 +500,7 @@ export default function LandingPage() {
       </MotionBox>
 
       {/* ── HERO ── */}
-      <HeroSection />
+      <Hero />
 
       {/* ── STATS BAR ── */}
       <Box sx={{ bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>

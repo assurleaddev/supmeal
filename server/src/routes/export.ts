@@ -12,6 +12,13 @@ router.get('/', requireAuth as any, async (req: AuthenticatedRequest, res: Respo
     const { format } = transferService.exportQuerySchema.parse(req.query);
     const data = await transferService.buildExport(req.user.id);
 
+    if (format === 'mealie') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="supmeal-mealie.json"');
+      res.json(transferService.toMealie(data));
+      return;
+    }
+
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="supmeal-export.csv"');

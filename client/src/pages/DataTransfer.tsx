@@ -1,31 +1,39 @@
 import { useState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Box, Typography, Paper, Button, RadioGroup, FormControlLabel, Radio, Alert,
+  Box, Typography, Paper, Button, RadioGroup, FormControlLabel, Radio, Alert, Checkbox,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { dataApi } from '../api';
+import { ExportFormat } from '../types';
 
 export default function DataTransfer() {
-  const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('json');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
+  const [warningAccepted, setWarningAccepted] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importResult, setImportResult] = useState<{ recipes: number; cookbooks: number; errors: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
+    // Le §2.2.6 impose que l'export n'ait lieu que « malgré un avertissement » : un bandeau passif
+    // ne suffit pas, l'utilisateur doit reconnaître explicitement le risque.
+    if (!warningAccepted) {
+      toast.error("Cochez d'abord la case d'avertissement pour confirmer l'export");
+      return;
+    }
     setExporting(true);
     try {
       const res = await dataApi.exportData(exportFormat);
       const blob = new Blob([res.data as BlobPart], {
-        type: exportFormat === 'json' ? 'application/json' : 'text/csv',
+        type: exportFormat === 'csv' ? 'text/csv' : 'application/json',
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `supmeal-export.${exportFormat}`;
+      a.download = exportFormat === 'csv' ? 'supmeal-export.csv' : `supmeal-export-${exportFormat}.json`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Export téléchargé !');
@@ -76,19 +84,27 @@ export default function DataTransfer() {
         </Typography>
 
         <Alert severity="warning" sx={{ borderRadius: 2 }}>
-          Le fichier exporté contiendra <strong>toutes vos données en clair</strong>. Conservez-le en lieu sûr.
+          <Typography variant="body2" mb={1}>
+            Le fichier exporté contiendra <strong>toutes vos données en clair</strong>, lisibles par
+            quiconque y aura accès : titres, ingrédients, étapes et noms de vos cookbooks. Aucun
+            chiffrement n'est appliqué. Conservez-le en lieu sûr et ne le partagez pas.
+          </Typography>
+          <FormControlLabel
+            control={<Checkbox size="small" checked={warningAccepted} onChange={(e) => setWarningAccepted(e.target.checked)} />}
+            label={<Typography variant="body2" fontWeight={600}>J'ai compris et je souhaite exporter mes données</Typography>}
+          />
         </Alert>
 
         <Box>
           <Typography variant="body2" fontWeight={600} mb={1}>Format d'export</Typography>
-          <RadioGroup value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'json' | 'csv')} row>
+          <RadioGroup value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ExportFormat)} row>
             <FormControlLabel
               value="json"
               control={<Radio size="small" />}
               label={
                 <Box>
                   <Typography variant="body2" fontWeight={600}>JSON</Typography>
-                  <Typography variant="caption" color="text.secondary">Complet, compatible Mealie</Typography>
+                  <Typography variant="caption" color="text.secondary">Complet — recettes, cookbooks, réimportable</Typography>
                 </Box>
               }
               sx={{ mr: 4 }}
@@ -102,6 +118,17 @@ export default function DataTransfer() {
                   <Typography variant="caption" color="text.secondary">Tableur Excel/Sheets</Typography>
                 </Box>
               }
+              sx={{ mr: 4 }}
+            />
+            <FormControlLabel
+              value="mealie"
+              control={<Radio size="small" />}
+              label={
+                <Box>
+                  <Typography variant="body2" fontWeight={600}>Mealie</Typography>
+                  <Typography variant="caption" color="text.secondary">Importable dans Mealie</Typography>
+                </Box>
+              }
             />
           </RadioGroup>
         </Box>
@@ -110,7 +137,7 @@ export default function DataTransfer() {
           variant="contained"
           startIcon={<DownloadIcon />}
           onClick={handleExport}
-          disabled={exporting}
+          disabled={exporting || !warningAccepted}
           sx={{ alignSelf: 'flex-start' }}
         >
           {exporting ? 'Export en cours...' : `Exporter en ${exportFormat.toUpperCase()}`}

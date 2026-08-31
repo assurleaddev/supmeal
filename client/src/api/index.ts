@@ -3,7 +3,6 @@ import {
   ApiResponse,
   AuthTokens,
   Cookbook,
-  CookbookMember,
   CookbookRole,
   Comment,
   Ingredient,
@@ -20,6 +19,7 @@ import {
   Tag,
   User,
   UserPreferences,
+  ExportFormat,
   UserStats,
 } from '../types';
 
@@ -210,7 +210,7 @@ export const mealPlanApi = {
 // ─────────────────────────────────────────
 
 export const dataApi = {
-  exportData: (format: 'json' | 'csv' = 'json') =>
+  exportData: (format: ExportFormat = 'json') =>
     api.get('/export', { params: { format }, responseType: 'blob' }),
 
   importData: (file: File) => {

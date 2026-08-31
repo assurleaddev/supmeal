@@ -215,6 +215,8 @@ export interface MealPlanWeek {
   plan: MealPlan | null;
 }
 
+export type ExportFormat = 'json' | 'csv' | 'mealie';
+
 export interface UserStats {
   recipes: number;
   cookbooks: number;

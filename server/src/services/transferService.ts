@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
 import { canonicalName } from '../utils/text';
+import { mealieToPayload, toMealieRecipe } from './mealieFormat';
 
 /**
  * Export et import des données utilisateur (§2.2.6 et §2.2.7).
@@ -16,7 +17,7 @@ import { canonicalName } from '../utils/text';
 // ─────────────────────────────────────────
 
 export const exportQuerySchema = z.object({
-  format: z.enum(['json', 'csv']).default('json'),
+  format: z.enum(['json', 'csv', 'mealie']).default('json'),
 });
 
 const importedIngredientSchema = z.object({
@@ -197,6 +198,20 @@ export function toCsv(data: Awaited<ReturnType<typeof buildExport>>): string {
   return rows.join('\n');
 }
 
+/**
+ * Sérialisation au format Mealie : une liste plate de recettes au vocabulaire schema.org.
+ *
+ * Mealie n'a pas de notion de cookbook transposable, aussi les recettes des cookbooks sont
+ * aplaties avec les recettes personnelles. L'export JSON natif reste le seul format qui préserve
+ * l'organisation complète.
+ */
+export function toMealie(data: Awaited<ReturnType<typeof buildExport>>) {
+  return [
+    ...data.personalRecipes,
+    ...data.cookbooks.flatMap((cookbook) => cookbook.recipes),
+  ].map(toMealieRecipe);
+}
+
 // ─────────────────────────────────────────
 // Lecture CSV
 // ─────────────────────────────────────────
@@ -294,18 +309,32 @@ export function csvToPayload(csv: string): unknown {
   };
 }
 
+/**
+ * Reconnaît le format du fichier puis le ramène à la charge utile interne.
+ *
+ * Trois entrées sont acceptées (§2.2.7) : l'export JSON de SUPMEAL, un CSV, et un export Mealie —
+ * ce dernier était annoncé dans l'interface et le manuel sans être implémenté, tout fichier Mealie
+ * réel étant rejeté en « Invalid import format ».
+ */
 export function parseImportFile(content: string, filename: string): ImportPayload {
-  const isCsv = filename.toLowerCase().endsWith('.csv');
+  if (filename.toLowerCase().endsWith('.csv')) {
+    return importPayloadSchema.parse(csvToPayload(content));
+  }
 
   let raw: unknown;
-  if (isCsv) {
-    raw = csvToPayload(content);
-  } else {
-    try {
-      raw = JSON.parse(content);
-    } catch {
-      throw new AppError('File is not valid JSON', 400);
-    }
+  try {
+    raw = JSON.parse(content);
+  } catch {
+    throw new AppError('File is not valid JSON', 400);
+  }
+
+  // Le format propre à SUPMEAL est reconnaissable à ses deux collections nommées.
+  const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
+  const isNative = record !== null && ('personalRecipes' in record || 'cookbooks' in record);
+
+  if (!isNative) {
+    const converted = mealieToPayload(raw);
+    if (converted) return importPayloadSchema.parse(converted);
   }
 
   return importPayloadSchema.parse(raw);

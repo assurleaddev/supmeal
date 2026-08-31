@@ -11,7 +11,10 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "node --require ts-node/register --test tests/**/*.test.ts",
+    "test:e2e": "node --require ts-node/register tests/e2e/api.e2e.ts",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\""
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -50,6 +53,9 @@
     "@types/passport-github2": "^1.2.9",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.3"

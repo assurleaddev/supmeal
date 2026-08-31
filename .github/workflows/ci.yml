@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    name: Serveur — lint, typecheck, tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+
+      # Le client Prisma est généré à partir du schéma : sans lui, la compilation échoue.
+      - run: npm run db:generate
+
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+
+  client:
+    name: Client — lint, typecheck, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  e2e:
+    name: Bout en bout — pile complète via Docker Compose
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Secrets de test uniquement : la CI ne dispose d'aucune donnée réelle.
+      - name: Préparer l'environnement
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=supmeal
+          POSTGRES_PASSWORD=ci_test_password
+          POSTGRES_DB=supmeal
+          JWT_SECRET=ci_only_access_secret_not_used_anywhere_else
+          JWT_REFRESH_SECRET=ci_only_refresh_secret_not_used_anywhere_else
+          NODE_ENV=production
+          CLIENT_URL=http://localhost:8080
+          VITE_API_URL=
+          OAUTH_CALLBACK_BASE=http://localhost:3000
+          EOF
+
+      - name: Démarrer la pile
+        run: docker compose up -d --build
+
+      - name: Attendre que l'API réponde
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health > /dev/null; then
+              echo "API prête"; exit 0
+            fi
+            sleep 5
+          done
+          echo "L'API n'a pas démarré"; docker compose logs server; exit 1
+
+      - name: Vérifier que le client est servi
+        run: curl -fsS -o /dev/null http://localhost:8080/
+
+      - name: Tests de bout en bout
+        working-directory: server
+        run: |
+          npm ci
+          npm run db:generate
+          npm run test:e2e
+
+      - name: Journaux en cas d'échec
+        if: failure()
+        run: docker compose logs --tail 100

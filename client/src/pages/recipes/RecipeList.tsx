@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box, Typography, Grid, Paper, Chip, Button, FormControlLabel, Checkbox,
-  FormControl, InputLabel, Select, MenuItem,
+  FormControl, InputLabel, Select,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
