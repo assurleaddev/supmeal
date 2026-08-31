@@ -132,7 +132,15 @@ export async function buildExport(userId: string) {
   const looseRecipes = await prisma.recipe.findMany({
     where: {
       createdById: userId,
-      OR: [{ cookbookId: null }, { cookbookId: { notIn: exportedCookbookIds } }],
+      OR: [
+        { cookbookId: null },
+        // Recettes déposées dans le cookbook d'un tiers : exportées tant que l'utilisateur en est
+        // encore membre, écartées s'il l'a quitté puisqu'il n'y a plus accès.
+        {
+          cookbookId: { notIn: exportedCookbookIds },
+          cookbook: { members: { some: { userId } } },
+        },
+      ],
     },
     include: exportInclude,
   });

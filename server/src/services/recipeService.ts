@@ -95,34 +95,40 @@ async function getMembership(cookbookId: string, userId: string) {
   });
 }
 
-/** Un membre, quel que soit son rôle, peut consulter les recettes du cookbook. */
+/**
+ * Une recette rattachée à un cookbook est gouvernée par l'appartenance à ce cookbook, jamais par
+ * son auteur.
+ *
+ * Faire primer la qualité d'auteur laissait un ancien membre lire, modifier et supprimer les
+ * recettes qu'il avait déposées dans un cookbook qu'il avait quitté : contribuer puis partir
+ * n'enlevait aucun droit. L'auteur ne conserve de privilège que sur ses recettes personnelles.
+ */
 async function assertCanRead(
-  recipe: { isPersonal: boolean; createdById: string; cookbookId: string | null },
+  recipe: { createdById: string; cookbookId: string | null },
   userId: string,
 ): Promise<void> {
-  if (recipe.createdById === userId) return;
-
   if (recipe.cookbookId) {
     const member = await getMembership(recipe.cookbookId, userId);
     if (member) return;
+    throw new AppError('Access denied', 403);
   }
 
+  if (recipe.createdById === userId) return;
   throw new AppError('Access denied', 403);
 }
 
-/** L'auteur, ou un CREATOR/EDITOR du cookbook auquel la recette appartient. */
+/** CREATOR ou EDITOR du cookbook ; pour une recette personnelle, son auteur. */
 async function assertCanWrite(
   recipe: { createdById: string; cookbookId: string | null },
   userId: string,
 ): Promise<void> {
-  if (recipe.createdById === userId) return;
-
   if (recipe.cookbookId) {
     const member = await getMembership(recipe.cookbookId, userId);
     if (member && WRITE_ROLES.includes(member.role)) return;
     throw new AppError('Insufficient permissions', 403);
   }
 
+  if (recipe.createdById === userId) return;
   throw new AppError('Access denied', 403);
 }
 
@@ -131,6 +137,22 @@ async function assertCanAddToCookbook(cookbookId: string, userId: string): Promi
   if (!member || !WRITE_ROLES.includes(member.role)) {
     throw new AppError('Insufficient permissions to add recipes to this cookbook', 403);
   }
+}
+
+/**
+ * Recettes qu'un utilisateur a le droit de voir.
+ *
+ * Règle unique, partagée par la recherche, les compteurs et la planification : une recette
+ * personnelle n'appartient qu'à son auteur, une recette de cookbook n'est visible que par les
+ * membres de ce cookbook — l'auteur compris, qui la perd donc en quittant le groupe.
+ */
+export function visibleRecipeFilter(userId: string): Prisma.RecipeWhereInput {
+  return {
+    OR: [
+      { cookbookId: null, createdById: userId },
+      { cookbookId: { not: null }, cookbook: { members: { some: { userId } } } },
+    ],
+  };
 }
 
 async function findRecipeOrFail(id: string) {
@@ -181,14 +203,7 @@ function upsertTags(names: string[]) {
  * exposerait les recettes des autres utilisateurs.
  */
 function buildSearchFilters(userId: string, query: RecipeQuery): Prisma.RecipeWhereInput[] {
-  const filters: Prisma.RecipeWhereInput[] = [
-    {
-      OR: [
-        { createdById: userId },
-        { cookbookId: { not: null }, cookbook: { members: { some: { userId } } } },
-      ],
-    },
-  ];
+  const filters: Prisma.RecipeWhereInput[] = [visibleRecipeFilter(userId)];
 
   if (query.cookbookId) filters.push({ cookbookId: query.cookbookId });
 

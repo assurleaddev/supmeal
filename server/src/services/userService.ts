@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
 import { resolveWeek } from '../utils/week';
+import { visibleRecipeFilter } from './recipeService';
 
 /**
  * Logique métier du compte utilisateur : profil, mot de passe, préférences culinaires, comptes
@@ -57,14 +58,7 @@ export async function getStats(userId: string) {
   const { weekStart, weekEnd } = resolveWeek();
 
   const [recipes, cookbooks, favorites, plannedThisWeek] = await Promise.all([
-    prisma.recipe.count({
-      where: {
-        OR: [
-          { createdById: userId },
-          { cookbookId: { not: null }, cookbook: { members: { some: { userId } } } },
-        ],
-      },
-    }),
+    prisma.recipe.count({ where: visibleRecipeFilter(userId) }),
     prisma.cookbookMember.count({ where: { userId } }),
     prisma.favorite.count({ where: { userId } }),
     prisma.mealPlanItem.count({

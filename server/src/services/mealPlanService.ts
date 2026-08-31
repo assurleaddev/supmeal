@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error';
 import { resolveWeek, toDateString } from '../utils/week';
+import { visibleRecipeFilter } from './recipeService';
 
 /**
  * Logique métier de la planification : appartenance des plannings, résolution des semaines et
@@ -133,13 +134,7 @@ export async function addItem(
   // La recette doit être visible par l'utilisateur : sans ce contrôle, n'importe quel identifiant
   // de recette pouvait être planifié, y compris celui d'une recette privée d'un autre compte.
   const recipe = await prisma.recipe.findFirst({
-    where: {
-      id: input.recipeId,
-      OR: [
-        { createdById: userId },
-        { cookbookId: { not: null }, cookbook: { members: { some: { userId } } } },
-      ],
-    },
+    where: { id: input.recipeId, ...visibleRecipeFilter(userId) },
     select: { id: true },
   });
   if (!recipe) throw new AppError('Recipe not found', 404);
