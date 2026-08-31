@@ -281,7 +281,10 @@ model MealPlanItem {
   portions   Int?
 
   mealPlan MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-  recipe   Recipe   @relation(fields: [recipeId], references: [id])
+  // Un repas planifié n'a plus de sens sans sa recette : il disparaît avec elle. Sans cette
+  // cascade — la seule qui manquait parmi les relations vers Recipe — supprimer une recette déjà
+  // planifiée violait la contrainte de clé étrangère et renvoyait une erreur 500.
+  recipe   Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@index([mealPlanId])
   @@index([date])

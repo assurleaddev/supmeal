@@ -50,6 +50,16 @@ export function errorHandler(
     return;
   }
 
+  // Contrainte de clé étrangère : la ressource est encore référencée ailleurs. C'est un conflit
+  // d'état, pas une panne serveur, et le message doit être exploitable côté client.
+  if ((err as any).code === 'P2003') {
+    res.status(409).json({
+      success: false,
+      message: 'Resource is still referenced by other records and cannot be deleted',
+    });
+    return;
+  }
+
   console.error('[ERROR]', err);
   res.status(500).json({ success: false, message: 'Internal server error' });
 }
