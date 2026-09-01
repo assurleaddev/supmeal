@@ -66,12 +66,12 @@ npm run dev               # :5173, proxy Vite vers :3000
 ## Constitution du rendu
 
 ```bash
-node scripts/package-rendu.mjs   # -> dist-rendu/SUPMEAL.zip
+git archive --format=zip -9 --prefix=SUPMEAL/ -o SUPMEAL.zip HEAD
 ```
 
-L'archive est bâtie depuis `git archive` : elle ne contient que les fichiers suivis, donc ni
-`.env`, ni `node_modules`, ni artefacts de build. Le script refuse de tourner sur un arbre sale et
-vérifie l'absence de secret avant d'écrire.
+`git archive` n'inclut **que les fichiers suivis** : `.env`, `node_modules` et les artefacts de
+build en sont absents par construction, puisque `.gitignore` les écarte. Compresser le dossier de
+travail à la main y ferait entrer `.env` et ses secrets.
 
 ## Documentation
 

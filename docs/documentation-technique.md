@@ -1977,24 +1977,25 @@ et GitHub — qui appartiennent à ces fournisseurs et exigent un compte réel.
 ### Archive
 
 ```bash
-node scripts/package-rendu.mjs
+git archive --format=zip -9 --prefix=SUPMEAL/ -o SUPMEAL.zip HEAD
 ```
 
-Produit `dist-rendu/SUPMEAL.zip` à partir de `git archive` : l'archive ne contient donc **que les
-fichiers suivis par Git**, et tout ce que `.gitignore` écarte en est absent par construction —
-`.env` et ses secrets, `node_modules`, les artefacts de build, les images téléversées, les dossiers
-d'outillage local.
+`git archive` n’inclut **que les fichiers suivis par Git**. Tout ce que `.gitignore` écarte est
+donc absent par construction : `.env` et ses secrets, `node_modules`, les artefacts de build, les
+images téléversées, les dossiers d’outillage local.
 
-Avant d'écrire l'archive, le script :
+Les deux options qui comptent : `--prefix=SUPMEAL/` donne à l’archive un dossier racine, faute de
+quoi l’extraire dans un répertoire déjà occupé y déverse les fichiers en vrac ; et `HEAD`
+désigne le **dernier commit**, non l’arbre de travail — vérifiez donc que rien n’est en attente
+avant de produire l’archive :
 
-1. refuse de s'exécuter si des modifications ne sont pas committées, l'archive ne refléterait pas le dépôt ;
-2. vérifie que `.env`, `node_modules`, les sorties de build et les uploads ne sont pas suivis ;
-3. inspecte chaque fichier texte suivi à la recherche d'identifiants Google, de secrets Google,
-   d'identifiants et secrets OAuth GitHub, de clés privées, de jetons GitHub et de clés API Google.
-   `.env.example` est exempté : ses valeurs sont des exemples par construction.
+```bash
+git status --porcelain     # doit ne rien afficher
+```
 
-> **Ne pas compresser le dossier de travail à la main.** `.env` y contient les secrets OAuth réels,
-> ce que le sujet sanctionne d'un malus proportionnel à la criticité du secret exposé.
+> **Ne pas compresser le dossier de travail à la main.** `.env` y contient les secrets OAuth
+> réels et `node_modules` pèse plusieurs centaines de mégaoctets. Le sujet sanctionne un secret
+> exposé d’un malus proportionnel à sa criticité.
 
 ### Dépôt Git
 
