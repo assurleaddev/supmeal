@@ -1,0 +1,40 @@
+SUPMEAL — dépôt Git
+===================
+
+https://github.com/assurleaddev/supmeal
+
+
+Cloner et lancer
+----------------
+
+    git clone https://github.com/assurleaddev/supmeal.git
+    cd supmeal
+    docker compose up -d --build
+
+Aucune étape préalable : ni fichier .env à créer, ni Node à installer sur la
+machine. Seul Docker est requis. Comptez 2 à 4 minutes au premier lancement,
+le temps de construire les images.
+
+    Application ....... http://localhost:8080
+    API ............... http://localhost:3000/api
+    Health check ...... http://localhost:3000/api/health
+
+Jeu de données de démonstration, optionnel — 3 comptes, 7 recettes,
+1 cookbook partagé, mot de passe commun « password123 » :
+
+    docker compose exec server npm run db:seed
+
+    alice@test.com ..... créateur du cookbook
+    bob@test.com ....... éditeur
+    charlie@test.com ... commentateur
+
+
+Documentation
+-------------
+
+    README.md ......................... vue d'ensemble et démarrage
+    docs/guide-exploitation.md ........ lancer, diagnostiquer, déployer
+    docs/documentation-technique.md ... architecture, UML, MCD/MLD/MPD, API
+    docs/schema-physique.sql .......... DDL PostgreSQL générée du schéma
+    docs/charte-graphique.md .......... identité visuelle et accessibilité
+    docs/manuel-utilisateur.md ........ prise en main, avec captures d'écran
