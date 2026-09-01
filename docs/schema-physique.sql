@@ -4,8 +4,7 @@
 -- Ce fichier est **généré**, pas écrit à la main. Il est la traduction PostgreSQL 16 exacte de
 -- server/prisma/schema.prisma, obtenue par :
 --
---     cd server
---     npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script
+--     node scripts/check-schema-physique.mjs --write
 --
 -- Il sert de référence de lecture : types physiques, contraintes, index et actions référentielles.
 -- Ce n'est **pas** un script de migration à exécuter : au démarrage, le conteneur server applique le
@@ -20,6 +19,8 @@
 -- (titre ≤ 200, nom d'ingrédient ≤ 100…) sont **applicatives**, validées par Zod. Aucune n'est une
 -- contrainte de base — toutes les chaînes sont des `TEXT` sans borne. Voir §5.7 de la
 -- documentation technique.
+--
+-- `node scripts/check-schema-physique.mjs` échoue si ce fichier a dérivé du schéma.
 -- =====================================================================================
 
 -- CreateEnum

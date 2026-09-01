@@ -1535,10 +1535,15 @@ Le modèle physique complet est un livrable à part : **[`docs/schema-physique.s
 Il est **généré**, jamais édité à la main, ce qui garantit qu'il ne peut pas dériver du schéma :
 
 ```bash
-cd server
-npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > ../docs/schema-physique.sql
-# puis remettre en tête du fichier le bloc de commentaires qui explique sa nature
+node scripts/check-schema-physique.mjs            # échoue si le fichier a dérivé du schéma
+node scripts/check-schema-physique.mjs --write    # le régénère, en-tête compris
 ```
+
+Le contrôle sans `--write` existe pour une raison : **un fichier généré et versionné n’a de
+valeur que s’il est vrai**. Une évolution du schéma Prisma sans régénération laisserait un
+modèle physique périmé dans la documentation — pire qu’aucun modèle, puisqu’un lecteur lui fait
+confiance. La comparaison porte sur la DDL seule, pas sur l’en-tête de commentaires :
+reformuler une explication ne déclenche pas d’échec.
 
 Correspondance des types, du niveau logique au niveau physique :
 
@@ -1950,6 +1955,7 @@ atteint bien les autres membres.
 cd server && npm run lint && npx tsc --noEmit -p tsconfig.test.json
 cd client && npm run lint && npm run build
 node scripts/check-diagrams.mjs        # depuis la racine, sans dépendance
+node scripts/check-schema-physique.mjs # le MPD correspond-il encore au schéma Prisma ?
 ```
 
 `scripts/check-diagrams.mjs` garde les diagrammes de la documentation. Trois défauts s’y
