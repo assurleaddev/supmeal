@@ -127,7 +127,9 @@ console.log('  ✓ aucun secret détecté');
 mkdirSync(OUT_DIR, { recursive: true });
 if (existsSync(ARCHIVE)) unlinkSync(ARCHIVE);
 
-git('archive', '--format=zip', '-9', '-o', ARCHIVE, 'HEAD');
+// `--prefix` donne à l'archive un dossier racine. Sans lui, l'extraire dans un répertoire déjà
+// occupé y déverse les 136 fichiers en vrac, et le correcteur ne sait plus ce qui vient du rendu.
+git('archive', '--format=zip', '-9', '--prefix=SUPMEAL/', '-o', ARCHIVE, 'HEAD');
 
 const size = statSync(ARCHIVE).size;
 console.log(`\n✓ Archive écrite : dist-rendu/SUPMEAL.zip (${(size / 1024 / 1024).toFixed(1)} Mo)`);
