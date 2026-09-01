@@ -1858,7 +1858,13 @@ atteint bien les autres membres.
 ```bash
 cd server && npm run lint && npx tsc --noEmit -p tsconfig.test.json
 cd client && npm run lint && npm run build
+node scripts/check-diagrams.mjs        # depuis la racine, sans dépendance
 ```
+
+`scripts/check-diagrams.mjs` garde les diagrammes de la documentation. Trois défauts s’y
+glissent sans jamais apparaître dans un `git diff` : un `end` oublié, un bloc jamais refermé, et
+un diagramme ajouté **sans l’en-tête de thème** — ce dernier ne casse rien, il produit seulement
+un diagramme violet au milieu de treize verts. Le script sort en erreur et nomme la cause.
 
 `tsconfig.test.json` existe pour une raison précise : `tsc --noEmit` ne couvrait que `src/**`, si
 bien que les fichiers de tests n'étaient pas vérifiés par le compilateur. Le workflow GitHub Actions
