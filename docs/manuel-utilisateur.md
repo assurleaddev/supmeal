@@ -148,6 +148,13 @@ La page **"Mes recettes"** propose des filtres puissants :
 - **👥 Membres** : Liste des membres et gestion des rôles (Créateur uniquement)
 - **💬 Chat** : Messagerie instantanée du groupe (temps réel)
 
+En haut du salon, un compteur indique **qui est connecté en ce moment** — pastille verte, nombre et
+initiales des personnes présentes. Il se met à jour instantanément quand quelqu'un ouvre ou ferme
+l'onglet, sans avoir à recharger la page. Survolez une initiale pour lire le nom.
+
+C'est la présence *dans le salon*, non la liste des membres du cookbook : un membre qui n'a pas
+ouvert l'onglet Chat n'y figure pas.
+
 ---
 
 ## 6. Planning de repas

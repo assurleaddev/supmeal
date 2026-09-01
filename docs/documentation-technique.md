@@ -897,6 +897,7 @@ sequenceDiagram
     alt membre du cookbook
         D-->>S: rôle COMMENTER
         S->>S: join room cookbook:<id>
+        S-->>A: cookbook:presence { members: [A] }
     else non membre
         S-->>A: error « Not a member of this cookbook »
         Note over S: pas de join : aucun message<br/>ne sera reçu ensuite
@@ -906,7 +907,8 @@ sequenceDiagram
     S->>D: SELECT CookbookMember
     D-->>S: rôle READER
     S->>S: join room cookbook:<id>
-    S-->>A: cookbook:joined { userId, username }
+    S-->>B: cookbook:presence { members: [A, B] }
+    S-->>A: cookbook:joined { cookbookId, userId, username }
 
     A->>S: cookbook:sendMessage
     S->>D: SELECT CookbookMember → rôle ≥ COMMENTER (autorisé)
@@ -917,10 +919,14 @@ sequenceDiagram
     B->>S: cookbook:sendMessage
     S->>D: SELECT CookbookMember → READER (refusé)
     S-->>B: error « Insufficient permissions »
-    Note over S,D: Rien n'est écrit, rien n'est diffusé.<br/>Aucun client n'écoute `error` : pas de retour visuel
+    Note over S,D: Rien n'est écrit, rien n'est diffusé.<br/>Le client affiche le refus
 
     B->>S: cookbook:leave(cookbookId)
-    S-->>A: cookbook:left { userId }
+    S-->>A: cookbook:left { cookbookId, userId, username }
+
+    Note over B: ou fermeture de l’onglet
+    B--xS: déconnexion
+    S-->>A: cookbook:left (émis sur `disconnecting`)
 ```
 
 Le seuil d'écriture est `COMMENTER`, **pas** `EDITOR` : le gestionnaire ne refuse que le rôle
@@ -931,15 +937,24 @@ L'appartenance est vérifiée **deux fois**, au `cookbook:join` puis à chaque `
 La redondance est voulue : un rôle peut être abaissé pendant que la connexion reste ouverte, et seule
 la seconde vérification le voit.
 
-Une honnêteté sur l’état actuel : des quatre événements que le serveur émet, **seul
-`cookbook:message` est écouté**. `error`, `cookbook:joined` et `cookbook:left` partent bien vers
-la room, mais aucun client n’enregistre de gestionnaire pour eux — le hook socket n’expose que
-`onMessage`. Ni le refus, ni les arrivées et départs n’atteignent donc l’écran.
+**Les cinq événements sont consommés par le client.** L’onglet Chat affiche une barre de
+présence — compteur et avatars empilés — et traduit les refus en notification.
 
-Pour le refus, l’interface désactive déjà la zone de saisie quand `canChat` est faux : ce chemin
-n’est atteignable qu’en contournant l’interface, la sécurité tient, seul le retour visuel manque.
-La présence, elle, est une fonctionnalité câblée côté serveur et pas encore branchée côté client.
-Le dire ici coûte moins cher que de laisser croire l’inverse.
+Deux subtilités expliquent la présence de `cookbook:presence`, qui pourrait sembler redondant
+avec `cookbook:joined`.
+
+`socket.to()` **exclut l’émetteur**. Un arrivant ne reçoit donc pas son propre
+`cookbook:joined` et n’a aucun moyen de savoir qui est déjà là : sa liste resterait vide jusqu’à
+la prochaine arrivée. Le serveur lui envoie l’état courant de la room en réponse au join.
+
+Cet état est **dédupliqué par utilisateur**, pas par socket : un même compte ouvert dans deux
+onglets tient deux connexions et figurerait deux fois. La déduplication passe par `socket.data`,
+seul champ que Socket.io conserve sur les `RemoteSocket` renvoyés par `fetchSockets()`.
+
+Enfin, fermer un onglet n’émet aucun `cookbook:leave`. Sans traitement, un utilisateur restait
+affiché comme présent chez les autres jusqu’à leur propre rechargement. Le gestionnaire est
+branché sur **`disconnecting`** et non `disconnect` : c’est le seul moment où `socket.rooms`
+contient encore les rooms quittées.
 
 ### 4.6 Diagramme de composants et de déploiement
 
@@ -1830,7 +1845,8 @@ Le jeton est vérifié au *handshake* ; une connexion sans jeton valide est refu
 | → | `cookbook:leave` | `cookbookId` | Quitte le salon. |
 | → | `cookbook:sendMessage` | `{ cookbookId, content }` | Publie un message. Refusé au rôle `READER`. |
 | ← | `cookbook:message` | `{ id, cookbookId, userId, username, avatar, content, createdAt }` | Diffusé à tout le salon, expéditeur compris. |
-| ← | `cookbook:joined` / `cookbook:left` | `{ userId, username }` | Arrivée ou départ d'un membre. |
+| ← | `cookbook:presence` | `{ cookbookId, members: [{ userId, username }] }` | État de la room, envoyé au seul arrivant en réponse à son `cookbook:join`. Dédupliqué par utilisateur. |
+| ← | `cookbook:joined` / `cookbook:left` | `{ cookbookId, userId, username }` | Arrivée ou départ d'un membre. `left` est aussi émis à la déconnexion, sans `cookbook:leave` préalable. |
 | ← | `error` | `string` | Motif du refus. |
 
 ### 7.10 Arborescence des écrans (client)
