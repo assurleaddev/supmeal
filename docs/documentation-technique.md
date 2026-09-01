@@ -293,21 +293,45 @@ docker compose down -v       # arrêt + suppression des données (postgres_data,
 Les diagrammes sont écrits en Mermaid : ils se rendent directement dans GitHub, GitLab et la plupart
 des éditeurs Markdown, et restent versionnables au même titre que le code.
 
-### 4.1 Diagramme de cas d'utilisation
+### 4.1 Diagrammes de cas d'utilisation
 
-Les numéros servent de référence dans le reste du document ; le rôle minimal exigé est indiqué
-lorsqu'il est supérieur à la simple adhésion.
+Trente-et-un cas d'utilisation dans un seul graphe donnaient un ruban illisible : les arêtes de
+l'acteur générique traversaient tous les paquets. Le modèle est donc découpé par **paquet
+fonctionnel**, chaque diagramme ne portant que les acteurs qui le concernent. La numérotation
+UC1–UC31 est continue d'un diagramme à l'autre et sert de référence dans le reste du document.
+
+#### Acteurs et hiérarchie des rôles
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 graph LR
-    subgraph Acteurs
-        V((Visiteur))
-        U((Utilisateur))
-        X((Membre<br/>commentateur))
-        E((Membre<br/>éditeur))
-        C((Créateur<br/>de cookbook))
-        P((Fournisseur<br/>OAuth2))
-    end
+    V((Visiteur)) -.->|devient| U((Utilisateur))
+    U -.->|COMMENTER| X((Membre<br/>commentateur))
+    X -.->|EDITOR| E((Membre<br/>éditeur))
+    E -.->|CREATOR| C((Créateur<br/>de cookbook))
+    P((Fournisseur<br/>OAuth2))
+
+    classDef acteur fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef externe fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    class V,U,X,E,C acteur
+    class P externe
+```
+
+Chaque rôle **hérite** du précédent : un `EDITOR` peut tout ce que peut un `COMMENTER`. Un membre
+simplement adhérent est un `READER` — il lit, mais ne commente pas. Le `Fournisseur OAuth2` est un
+acteur **externe** : il n'utilise pas le système, il participe à deux de ses cas d'utilisation.
+
+Le rôle `CREATOR` naît avec le cookbook et ne s'attribue pas : il n'existe aucun transfert de
+propriété, et la seule sortie du créateur est de supprimer le cookbook (UC25).
+
+#### Compte
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
+graph LR
+    V((Visiteur))
+    U((Utilisateur))
+    P((Fournisseur<br/>OAuth2))
 
     subgraph "Compte"
         UC1[S'inscrire]
@@ -321,6 +345,40 @@ graph LR
         UC9[Consulter ses statistiques]
     end
 
+    V --> UC1
+    V --> UC2
+    V --> UC3
+
+    U --> UC2
+    U --> UC4
+    U --> UC5
+    U --> UC6
+    U --> UC7
+    U --> UC8
+    U --> UC9
+
+    UC3 -.-> P
+    UC5 -.-> P
+
+    classDef acteur fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef externe fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    class V,U acteur
+    class P externe
+```
+
+Le **Visiteur** ne dispose que des trois portes d'entrée. Tout le reste suppose une session. Les
+deux liens en pointillé marquent les cas où un **acteur externe** intervient : le fournisseur
+OAuth2 est sollicité aussi bien pour la connexion (UC3) que pour le rattachement d'une identité à
+un compte existant (UC5).
+
+#### Recettes
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
+graph LR
+    U((Utilisateur))
+    E((Membre<br/>éditeur))
+
     subgraph "Recettes"
         UC10[Créer une recette]
         UC11[Modifier / supprimer une recette]
@@ -329,6 +387,38 @@ graph LR
         UC14[Téléverser une photo]
         UC15[Enrichir le catalogue de tags]
     end
+
+    U --> UC10
+    U --> UC11
+    U --> UC12
+    U --> UC13
+    U --> UC14
+    U --> UC15
+
+    E --> UC10
+    E --> UC11
+    E --> UC14
+
+    classDef acteur fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    class U,E acteur
+```
+
+**UC10, UC11 et UC14** dépendent de la recette visée, pas seulement de l’acteur. Sur une recette
+**personnelle**, tout utilisateur agit sans condition — c’est l’arc partant de l’utilisateur
+générique. Dès qu’une recette porte un `cookbookId`, l’écriture relève de `WRITE_ROLES` —
+`CREATOR` ou `EDITOR` — d’où le second arc, partant de l’éditeur.
+
+Un `COMMENTER` ne peut donc pas modifier une recette du cookbook, **même celle qu’il a lui-même
+rédigée** : l’appartenance prime sur la paternité (§7.4).
+#### Cookbooks partagés
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
+graph LR
+    U((Utilisateur))
+    X((Membre<br/>commentateur))
+    E((Membre<br/>éditeur))
+    C((Créateur<br/>de cookbook))
 
     subgraph "Cookbooks partagés"
         UC16[Créer un cookbook]
@@ -343,6 +433,39 @@ graph LR
         UC25[Supprimer le cookbook]
     end
 
+    U --> UC16
+    U --> UC17
+    U --> UC18
+    U --> UC20
+
+    X --> UC18
+    X --> UC19
+
+    E --> UC21
+
+    C --> UC22
+    C --> UC23
+    C --> UC24
+    C --> UC25
+
+    classDef acteur fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    class U,X,E,C acteur
+```
+
+**UC18** suit la même règle que les recettes : commenter sa **propre** recette personnelle ne demande
+aucun rôle — d'où l'arc partant de l'utilisateur générique. Le seuil `COMMENTER` ne s'applique qu'aux
+recettes rattachées à un cookbook. Retirer un commentaire est réservé à son auteur.
+
+**UC20** n'est pas offert au créateur, qui ne peut pas quitter son cookbook.
+
+#### Planification et portabilité
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
+graph LR
+    U((Utilisateur))
+    E((Membre<br/>éditeur))
+
     subgraph "Planification"
         UC26[Planifier un repas personnel]
         UC27[Planifier les repas<br/>d'un cookbook]
@@ -355,80 +478,29 @@ graph LR
         UC31[Importer un fichier]
     end
 
-    V --> UC1
-    V --> UC2
-    V --> UC3
-    UC3 -.-> P
-    UC5 -.-> P
-
-    U --> UC2
-    U --> UC4
-    U --> UC5
-    U --> UC6
-    U --> UC7
-    U --> UC8
-    U --> UC9
-    U --> UC10
-    U --> UC11
-    U --> UC12
-    U --> UC13
-    U --> UC14
-    U --> UC15
-    U --> UC16
-    U --> UC17
-    U --> UC20
     U --> UC26
     U --> UC28
     U --> UC29
     U --> UC30
     U --> UC31
 
-    X --> UC18
-    X --> UC19
-
-    E --> UC21
     E --> UC27
 
-    C --> UC22
-    C --> UC23
-    C --> UC24
-    C --> UC25
-
-    X -.->|est un| U
-    E -.->|est un| X
-    C -.->|est un| E
+    classDef acteur fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    class U,E acteur
 ```
 
-Le **Membre éditeur** et le **Créateur de cookbook** sont des spécialisations de l'**Utilisateur** :
-ils héritent de ses cas d'utilisation, à **une exception près** — le créateur ne peut pas quitter son
-cookbook (UC20). Le rôle `CREATOR` naît avec le cookbook et ne s'attribue pas
-(`ASSIGNABLE_ROLES` exclut `CREATOR`, `server/src/services/cookbookService.ts`) : il n'existe donc
-aucun transfert de propriété, et la seule sortie du créateur est UC25 — supprimer le cookbook.
+Un planning rattaché à un cookbook est **visible de tous ses membres**, mais seuls `CREATOR` et
+`EDITOR` peuvent le remanier (`PLAN_WRITE_ROLES`, §7.7) — d'où UC27 réservé à l'éditeur. UC28
+détaille les suggestions classées pour un créneau donné, traitées au §10.
 
-La hiérarchie complète des rôles est `READER` < `COMMENTER` < `EDITOR` < `CREATOR`, et les trois
-acteurs spécialisés du diagramme la suivent. Un membre simplement adhérent — un `READER` — ne peut
-**ni commenter ni écrire dans le chat** : UC18 et UC19 exigent `COMMENTER`, seuil appliqué aussi
-bien par `addComment` que par le gestionnaire `cookbook:sendMessage`. Le seuil de chaque action
-figure dans la matrice des droits du §7.5 ; le §4.5 illustre son application au fil d’un échange
-temps réel.
-
-Deux cas dépendent de la recette visée plutôt que d’un acteur :
-
-- **UC10** et **UC11** sont sans condition sur une recette **personnelle**. Dès qu’une recette
-  porte un `cookbookId`, l’écriture relève de `WRITE_ROLES` — `CREATOR` ou `EDITOR`. Un
-  `COMMENTER` ne peut donc pas modifier une recette du cookbook, **même celle qu’il a lui-même
-  rédigée** : l’appartenance prime sur la paternité (§7.4).
-- **UC18** couvre aussi le retrait de son propre commentaire, réservé à son auteur.
-
-Deux cas d'utilisation ne sont pas de simples lectures et méritent d'être situés :
-
-- **UC27** — un planning rattaché à un cookbook est visible de tous ses membres, mais seuls
-  `CREATOR` et `EDITOR` peuvent le remanier (`PLAN_WRITE_ROLES`, §7.7).
-- **UC28** — les suggestions classées pour un créneau donné, détaillées au §10.
+Le seuil de chaque action figure dans la matrice des droits du §7.5 ; le §4.5 montre son application
+au fil d'un échange temps réel.
 
 ### 4.2 Diagramme de classes — modèle de données
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 classDiagram
     class User {
         +String id
@@ -623,8 +695,9 @@ classDiagram
 attributs propres à la relation — quantité, unité, notes et rang pour un ingrédient, rôle et date
 d'adhésion pour un membre — et ne peuvent donc pas être réduites à une table de jonction.
 
-`RecipeTag` et `Favorite` sont, elles, de **vraies tables de jonction** : elles n'ont pour colonnes
-que les deux clés étrangères qui forment leur clé primaire composite. La distinction n'est pas
+`RecipeTag` et `Favorite` sont, elles, des **tables de jonction** : leur identifiant est le couple
+de clés étrangères. `RecipeTag` n’a rien d’autre ; `Favorite` porte en plus un `createdAt`, qui
+date le geste sans le qualifier. La distinction n'est pas
 cosmétique : une classe-association peut gagner des attributs, une table de jonction ne le peut pas
 sans changer de nature.
 
@@ -638,6 +711,7 @@ n'expose qu'une seule classe (`AppError`). Son découpage se lit au §4.6, pas i
 ### 4.3 Diagramme de séquence — connexion et rafraîchissement de jeton
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 sequenceDiagram
     actor U as Navigateur
     participant N as nginx
@@ -666,12 +740,12 @@ sequenceDiagram
     U->>A: POST /api/auth/refresh (refreshToken)
     A->>A: jwt.verify (JWT_REFRESH_SECRET — secret distinct)
 
-    alt refresh valide
+    alt refresh valide et utilisateur trouvé
         A->>D: SELECT user WHERE id
         A-->>U: nouveaux jetons
         U->>A: rejoue la requête initiale
         A-->>U: 200 + recettes
-    else refresh refusé (401)
+    else signature invalide, expirée, ou compte supprimé
         A-->>U: 401 Invalid or expired refresh token
         U->>U: logout() du store + redirection /login
         Note over U: les requêtes en attente<br/>expirent sur leur délai de garde
@@ -680,6 +754,11 @@ sequenceDiagram
 
 L'intercepteur HTTP du client sérialise les rafraîchissements : les requêtes concurrentes qui
 échouent en `401` attendent le nouveau jeton au lieu de déclencher chacune sa propre rotation.
+
+Les trois causes de refus renvoient **le même message**. Une signature invalide, un jeton expiré
+et un compte supprimé entre-temps donnent tous `401 Invalid or expired refresh token` : le
+client n’a pas à les distinguer, et l’API ne renseigne pas un attaquant sur l’existence du
+compte.
 
 À l’échec, les requêtes déjà mises en attente ne sont pas rejetées activement : leur rappel est
 écarté de la file et chacune se règle sur son propre délai de garde de 15 s — en pratique la
@@ -694,6 +773,7 @@ au XSS, assumé ici et discuté au §6.
 ### 4.4 Diagramme de séquence — rattachement d'un fournisseur OAuth2
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 sequenceDiagram
     actor U as Utilisateur connecté
     participant C as Client
@@ -742,6 +822,7 @@ pas non plus les jetons du fournisseur. Le seul `UPDATE` de ces jetons appartien
 ### 4.5 Diagramme de séquence — messagerie temps réel et permissions
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 sequenceDiagram
     actor A as Membre A (COMMENTER)
     actor B as Membre B (READER)
@@ -807,6 +888,7 @@ Le dire ici coûte moins cher que de laisser croire l’inverse.
 ### 4.6 Diagramme de composants et de déploiement
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 graph TB
     subgraph Navigateur
         SPA["Client React<br/>(SPA, aucune logique métier)"]
@@ -853,7 +935,8 @@ graph TB
     EX --> VU
     DB --> VD
     EX -.->|échange de jeton| EXT
-    EXT -.->|"redirection du navigateur — 3000 (hôte)"| EX
+    EXT -.->|"retour du consentement — 3000 (hôte)"| EX
+    SPA -.->|"démarrage du rattachement — 3000 (hôte)"| EX
 
     EX -.->|"depends_on: service_healthy"| DB
     NG -.->|depends_on| EX
@@ -863,11 +946,18 @@ Les trois briques du §3 — backend, frontend, base de données — corresponde
 Pour le trafic applicatif, le navigateur ne joint jamais l’API directement : nginx relaie
 `/api/`, `/uploads/` et `/socket.io/`, ce qui évite toute configuration CORS côté client.
 
-**Le callback OAuth2 fait exception**, et c’est la seule. L’`redirect_uri` transmis aux
-fournisseurs vaut `OAUTH_CALLBACK_BASE/api/auth/<provider>/callback`, dont la valeur par défaut
-est `http://localhost:3000` : au retour du consentement, le fournisseur redirige le navigateur
-**directement sur le port publié du conteneur server**, sans passer par nginx. C’est précisément
-ce qui rend la publication du port `3000` nécessaire, et non un simple confort de débogage.
+**Le rattachement OAuth2 fait exception, par deux trajets** — tous deux construits sur
+`OAUTH_CALLBACK_BASE`, dont la valeur par défaut est `http://localhost:3000` :
+
+1. **Le démarrage.** `POST /api/auth/link/:provider` renvoie une URL **absolue** vers l’API, et le
+   client y navigue par `window.location.href` — donc directement sur le port 3000.
+2. **Le retour.** Le `redirect_uri` transmis au fournisseur vaut
+   `OAUTH_CALLBACK_BASE/api/auth/<provider>/callback` : après consentement, le fournisseur
+   redirige le navigateur sur ce même port.
+
+La **connexion** OAuth2, elle, passe bien par nginx : son bouton utilise un lien relatif, car
+`VITE_API_URL` est vide en Docker. C’est ce qui rend la publication du port `3000` nécessaire, et
+non un simple confort de débogage.
 
 **Ports publiés sur l'hôte.** Le client est exposé en `8080→80` : le port `80` du schéma n'est
 joignable que depuis le réseau Docker, et c'est bien `http://localhost:8080` qu'il faut ouvrir. L'API
@@ -886,6 +976,7 @@ donc accepter des connexions quelques secondes avant que l'API ne réponde.
 ### 4.7 Diagramme d'activité — création d'une recette
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 flowchart TD
     A([Utilisateur clique « Nouvelle recette »]) --> B[Saisie du formulaire]
     B --> B1{"Champs requis remplis ?<br/>react-hook-form, côté client"}
@@ -915,6 +1006,11 @@ flowchart TD
     O --> O1{"Upload accepté ?<br/>extension jpg/jpeg/png/webp/gif<br/>et taille ≤ 5 Mo"}
     O1 -->|Oui| P
     O1 -->|Non| O2["Recette créée sans photo<br/>message d'erreur, pas de redirection"]
+
+    classDef refus fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef succes fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    class B2,J,G,O2 refus
+    class Q,P succes
 ```
 
 Trois points où ce diagramme corrige une intuition courante.
@@ -945,6 +1041,7 @@ aller-retour.
 les voici en un seul endroit.
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 stateDiagram-v2
     direction LR
 
@@ -986,6 +1083,7 @@ de vie de 7 jours.
 L'adhésion qui en résulte a son propre cycle, plus simple :
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 stateDiagram-v2
     direction LR
     [*] --> READER : invitation acceptée<br/>(rôle porté par l'invitation)
@@ -1030,6 +1128,7 @@ des modèles Prisma**, en PascalCase, et doivent donc être citées entre guille
 (`SELECT * FROM "Recipe"`).
 
 ```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Roboto, Helvetica, Arial, sans-serif","fontSize":"15px","primaryColor":"#f0fdf4","primaryTextColor":"#14532d","primaryBorderColor":"#16a34a","secondaryColor":"#f8fafc","secondaryTextColor":"#1e293b","secondaryBorderColor":"#cbd5e1","tertiaryColor":"#ffffff","tertiaryTextColor":"#1e293b","tertiaryBorderColor":"#e2e8f0","lineColor":"#475569","textColor":"#1e293b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","titleColor":"#0f172a","actorBkg":"#f0fdf4","actorBorder":"#16a34a","actorTextColor":"#14532d","actorLineColor":"#94a3b8","signalColor":"#334155","signalTextColor":"#1e293b","labelBoxBkgColor":"#ea580c","labelBoxBorderColor":"#c2410c","labelTextColor":"#ffffff","loopTextColor":"#1e293b","noteBkgColor":"#fff7ed","noteBorderColor":"#fb923c","noteTextColor":"#7c2d12","activationBkgColor":"#dcfce7","activationBorderColor":"#16a34a","attributeBackgroundColorOdd":"#ffffff","attributeBackgroundColorEven":"#f8fafc"}}}%%
 erDiagram
     User ||--o{ OAuthAccount : "possède"
     User ||--o| UserPreferences : "paramètre"
@@ -1072,8 +1171,8 @@ erDiagram
     OAuthAccount {
         String id PK
         String userId FK
-        String provider "google | github | microsoft"
-        String providerId
+        String provider UK "google | github | microsoft"
+        String providerId UK
         String accessToken "nullable"
         String refreshToken "nullable"
     }
@@ -1099,8 +1198,8 @@ erDiagram
 
     CookbookMember {
         String id PK
-        String cookbookId FK
-        String userId FK
+        String cookbookId FK,UK
+        String userId FK,UK
         CookbookRole role "CREATOR | EDITOR | COMMENTER | READER"
         DateTime joinedAt
     }
@@ -1217,14 +1316,18 @@ bien présents mais répartis sur deux chapitres :
 
 | Niveau | Où | Ce qui le caractérise ici |
 |---|---|---|
-| **Conceptuel** (MCD) | §4.2, diagramme de classes | Entités et associations **sans clé étrangère** ; `RecipeIngredient` et `CookbookMember` y sont des classes-association |
+| **Conceptuel** (MCD) | §4.2, diagramme de classes | Associations nommées plutôt que réifiées ; `RecipeIngredient` et `CookbookMember` y sont des classes-association |
 | **Logique** (MLD) | §5.1, ci-dessus | Les clés étrangères apparaissent, les associations porteuses sont devenues des tables, les clés primaires composites sont explicites |
 | **Physique** (MPD) | §5.6 et `docs/schema-physique.sql` | Types PostgreSQL, index, actions référentielles |
 
-Le diagramme du §5.1 montre `String userId FK` et la clé primaire composite de `RecipeTag` : au sens
-strict, il s'agit donc d'un **MLD**, pas d'un MCD — un modèle conceptuel ne connaît pas les clés
-étrangères. Le niveau conceptuel est tenu par le §4.2, où les associations sont nommées plutôt que
-réifiées.
+Le diagramme du §5.1 montre `String userId FK` et la clé primaire composite de `RecipeTag` : au
+sens strict, il s'agit donc d'un **MLD**, pas d'un MCD. Le niveau conceptuel est tenu par le §4.2,
+où les associations sont nommées plutôt que réifiées.
+
+Une réserve, pour être exact : le §4.2 n'est pas totalement exempt de clés étrangères — `RecipeTag`
+et `Favorite` y montrent les leurs, faute de quoi ces deux classes seraient vides. Un MCD
+strictement orthodoxe les remplacerait par de simples associations nommées ; les garder rend le
+diagramme plus utile au lecteur qui code, au prix de cette entorse assumée.
 
 #### Notation relationnelle
 
@@ -1232,10 +1335,10 @@ Le même MLD en notation textuelle, pour la lecture rapide : clé primaire <u>so
 étrangère préfixée de `#`, attribut facultatif suivi de `*`.
 
 - `User`(<u>id</u>, email, username, passwordHash *, avatar *, createdAt, updatedAt)
-- `OAuthAccount`(<u>id</u>, #userId, provider, providerId, accessToken *, refreshToken *)
+- `OAuthAccount`(<u>id</u>, #userId, provider, providerId, accessToken *, refreshToken *) — clé alternative (provider, providerId)
 - `UserPreferences`(<u>id</u>, #userId, diet, allergies, cuisineTypes, defaultPortions)
 - `Cookbook`(<u>id</u>, name, description *, coverImage *, #createdById, createdAt, updatedAt)
-- `CookbookMember`(<u>id</u>, #cookbookId, #userId, role, joinedAt)
+- `CookbookMember`(<u>id</u>, #cookbookId, #userId, role, joinedAt) — clé alternative (cookbookId, userId)
 - `CookbookInvite`(<u>id</u>, #cookbookId, email, token, role, #invitedById, expiresAt, usedAt *, createdAt)
 - `Recipe`(<u>id</u>, title, description *, prepTime *, cookTime *, portions, sourceUrl *, imageUrl *, isPersonal, #createdById, #cookbookId *, createdAt, updatedAt)
 - `Ingredient`(<u>id</u>, name)
@@ -1287,16 +1390,27 @@ distingue le personnel du partagé.
 | `Recipe` | ingrédients, étapes, tags, favoris, commentaires, **entrées de planning** |
 | `MealPlan` | ses entrées |
 
-Une relation échappe à la cascade, et c’est délibéré :
+Le tableau ci-dessus ne dit pas tout. Sur les **24 clés étrangères** du schéma, 19 cascadent, mais
+cinq ne cascadent pas :
 
-| Suppression de | Effet sur | Action |
+| Action | Clés concernées | Effet |
 |---|---|---|
-| `Cookbook` | `MealPlan` partagés | `SET NULL` — le planning **n’est pas supprimé** : `cookbookId` repasse à `NULL` et il redevient un planning personnel de son auteur. |
+| `SET NULL` | `MealPlan.cookbookId` | Supprimer un cookbook **ne supprime pas** les plannings partagés : `cookbookId` repasse à `NULL` et le planning redevient personnel. |
+| `RESTRICT` | `Cookbook.createdById`, `Recipe.createdById`, `CookbookInvite.invitedById`, `RecipeIngredient.ingredientId` | La suppression du parent est **refusée** par la base tant qu’un enfant le référence. |
 
-C’est la seule action référentielle non-`CASCADE` du schéma. Supprimer un cookbook détruit ses
-recettes, mais pas le travail de planification de ses membres — celui-ci leur reste, en
-personnel. Le §5.6 et `docs/schema-physique.sql` le montrent au niveau physique
-(`ON DELETE SET NULL` sur `MealPlan_cookbookId_fkey`).
+Les quatre `RESTRICT` ne sont pas un choix explicite : ils sont le **défaut de Prisma** pour une
+relation obligatoire sans `onDelete`. Leur effet contredit ce que la première ligne du tableau
+laisse attendre — supprimer un utilisateur qui a créé un cookbook ou rédigé une recette serait
+rejeté par PostgreSQL, pas cascadé.
+
+En pratique, aucun de ces chemins n’est atteignable : **l’API n’expose ni suppression de compte,
+ni suppression d’ingrédient ou de tag**. La contrainte tient donc le rôle d’un garde-fou plutôt
+que d’une règle métier — mais une évolution qui ajouterait la suppression de compte devrait la
+traiter d’abord.
+
+Le `SET NULL`, lui, est délibéré : supprimer un cookbook détruit ses recettes, mais pas le travail
+de planification de ses membres. `docs/schema-physique.sql` porte les trois actions au niveau
+physique.
 
 La cascade `Recipe` → `MealPlanItem` est, elle, indispensable : sans elle, supprimer une recette
 déjà planifiée violait la contrainte de clé étrangère et échouait en erreur 500.
