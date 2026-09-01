@@ -75,8 +75,11 @@ vérifie l'absence de secret avant d'écrire.
 
 ## Documentation
 
+- [Guide d'exploitation](docs/guide-exploitation.md) — **lancer, diagnostiquer, déployer**. Le
+  runbook : prérequis, vérification d'une installation, table des pannes courantes avec leur cause,
+  sauvegarde et restauration, mise en ligne sur un serveur.
 - [Documentation technique](docs/documentation-technique.md) — configuration, déploiement,
-  choix technologiques, 10 diagrammes UML, modèles conceptuel/logique/physique, dictionnaire de
+  choix technologiques, 14 diagrammes UML, modèles conceptuel/logique/physique, dictionnaire de
   données, sécurité, référence de l'API et plan de tests.
 - [Schéma physique](docs/schema-physique.sql) — DDL PostgreSQL complète, générée depuis
   `schema.prisma` : 17 tables, 36 index, 24 clés étrangères.

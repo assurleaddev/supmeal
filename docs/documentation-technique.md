@@ -53,6 +53,11 @@ openssl rand -base64 32   # POSTGRES_PASSWORD
 
 ## 2. Guide de déploiement
 
+> Ce chapitre décrit **ce qu'est** le déploiement : services, ordonnancement, variables, ports.
+> Pour les procédures — diagnostic d'une panne, sauvegarde, mise en ligne sur un serveur — voir
+> le [guide d'exploitation](guide-exploitation.md), qui ne répète pas ce chapitre mais le
+> prolonge.
+
 ### Via Docker Compose (recommandé)
 
 ```bash

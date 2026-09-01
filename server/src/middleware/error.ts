@@ -60,6 +60,23 @@ export function errorHandler(
     return;
   }
 
+  // Erreurs de multer. Envoyer une photo trop lourde est une faute du client, mais l'erreur
+  // remontait en « 500 Internal server error » : l'utilisateur ne pouvait pas deviner qu'il
+  // suffisait de réduire son image. Les limites sont rappelées dans le message, faute de quoi il
+  // faudrait lire le code pour les connaître.
+  if (err.name === 'MulterError') {
+    const code = (err as any).code as string;
+    const message =
+      code === 'LIMIT_FILE_SIZE'
+        ? 'File too large — 5 MB maximum for a recipe image, 10 MB for an import file'
+        : code === 'LIMIT_UNEXPECTED_FILE'
+          ? 'Unexpected file field'
+          : `Upload rejected (${code})`;
+
+    res.status(400).json({ success: false, message });
+    return;
+  }
+
   console.error('[ERROR]', err);
   res.status(500).json({ success: false, message: 'Internal server error' });
 }
