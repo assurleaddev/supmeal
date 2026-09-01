@@ -58,18 +58,32 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-// Les valeurs d'exemple sont volontairement acceptées pour qu'un `docker compose up` fonctionne
-// immédiatement, mais elles ne doivent jamais atteindre un déploiement réel.
+// Les valeurs de repli sont volontairement acceptées pour qu'un `docker compose up` fonctionne sur
+// un dépôt fraîchement cloné, mais elles ne doivent jamais atteindre un déploiement réel.
+//
+// Deux sources les fournissent : les valeurs d'exemple de `.env.example` et celles de
+// `docker-compose.yml`. Toutes portent l'un de ces marqueurs, ce qui rend l'avertissement fiable
+// sans avoir à comparer à une liste de chaînes exactes qui dériverait au premier renommage.
 const PLACEHOLDER_MARKERS = ['change_this', 'dev_secret', 'change_me'];
 
-const usesPlaceholder = [env.JWT_SECRET, env.JWT_REFRESH_SECRET].some((secret) =>
-  PLACEHOLDER_MARKERS.some((marker) => secret.toLowerCase().includes(marker)),
-);
+const carriesMarker = (value: string): boolean =>
+  PLACEHOLDER_MARKERS.some((marker) => value.toLowerCase().includes(marker));
 
-if (usesPlaceholder) {
+// Le mot de passe de la base est vérifié via DATABASE_URL, seule forme sous laquelle le serveur le
+// reçoit : un mot de passe de démonstration mérite le même avertissement qu'un secret JWT.
+const insecure = [
+  ['les secrets JWT', env.JWT_SECRET, env.JWT_REFRESH_SECRET],
+  ['le mot de passe PostgreSQL', env.DATABASE_URL],
+]
+  .filter(([, ...values]) => (values as string[]).some(carriesMarker))
+  .map(([label]) => label as string);
+
+if (insecure.length > 0) {
   console.warn(
-    '\n⚠️  Les secrets JWT utilisent encore les valeurs d\'exemple de .env.example.\n' +
-      '   Remplacez-les avant tout déploiement : openssl rand -base64 64\n',
+    `\n⚠️  Valeurs de démonstration en place pour ${insecure.join(' et ')}.\n` +
+      "   La pile fonctionne, mais ces valeurs sont publiques : elles figurent dans .env.example et\n" +
+      '   dans docker-compose.yml. Avant tout déploiement réel, renseignez .env avec des secrets\n' +
+      '   générés : openssl rand -base64 64\n',
   );
 }
 

@@ -7,16 +7,22 @@ messagerie temps réel, import/export.
 ## Démarrage rapide (Docker)
 
 ```bash
-# 1. Copier et configurer les variables d'environnement
-cp .env.example .env
-# Éditer .env : renseigner au minimum POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET
-#   openssl rand -base64 64   # pour chaque secret JWT
-
-# 2. Lancer l'application
+git clone https://github.com/assurleaddev/supmeal.git
+cd supmeal
 docker compose up --build -d
+```
 
-# 3. (optionnel) Charger le jeu de données de démonstration
+C'est tout : aucune étape préalable. Les trois valeurs sensibles ont un repli de démonstration dans
+`docker-compose.yml`, et le serveur avertit au démarrage tant qu'il les utilise.
+
+```bash
+# (optionnel) jeu de données de démonstration : 2 comptes, 7 recettes, 1 cookbook
 docker compose exec server npm run db:seed
+
+# Avant tout déploiement réel : des secrets générés, dans .env
+cp .env.example .env
+openssl rand -base64 64   # pour POSTGRES_PASSWORD, JWT_SECRET et JWT_REFRESH_SECRET
+docker compose up -d --force-recreate
 ```
 
 | | URL |

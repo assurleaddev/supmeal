@@ -3,12 +3,17 @@ services:
     image: postgres:16-alpine
     container_name: supmeal_db
     restart: unless-stopped
-    # Les trois valeurs ci-dessous sont exigées explicitement (syntaxe ${VAR:?message}). Sans .env,
-    # Compose interrompt le lancement en affichant la consigne à suivre, au lieu de laisser
-    # démarrer une pile qui échouerait plus loin sur une erreur de l’image PostgreSQL.
+    # Les trois valeurs sensibles de cette pile ont une valeur de repli préfixée « change_me ». Le
+    # cahier des charges exige que l'application se lance « intégralement via docker compose » : sur
+    # un dépôt fraîchement cloné, `.env` n'existe pas — il est ignoré par git — et exiger sa création
+    # ferait échouer cette commande. Le repli garantit une pile fonctionnelle sans étape préalable.
+    #
+    # Ce ne sont pas des secrets, ce sont des marqueurs, de même nature que ceux de `.env.example` :
+    # le serveur les reconnaît au démarrage (PLACEHOLDER_MARKERS) et avertit tant qu'ils sont en
+    # place. Un déploiement réel renseigne `.env`, qui prend le pas sur ces valeurs.
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-supmeal}
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?absent, copiez .env.example en .env avant docker compose up}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-change_me_local_postgres_password}"
       POSTGRES_DB: ${POSTGRES_DB:-supmeal}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -30,9 +35,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-supmeal}:${POSTGRES_PASSWORD:?absent, copiez .env.example en .env avant docker compose up}@postgres:5432/${POSTGRES_DB:-supmeal}"
-      JWT_SECRET: "${JWT_SECRET:?absent, copiez .env.example en .env avant docker compose up}"
-      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?absent, copiez .env.example en .env avant docker compose up}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-supmeal}:${POSTGRES_PASSWORD:-change_me_local_postgres_password}@postgres:5432/${POSTGRES_DB:-supmeal}"
+      JWT_SECRET: "${JWT_SECRET:-change_me_local_jwt_access_secret_not_for_production}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:-change_me_local_jwt_refresh_secret_not_for_production}"
       PORT: 3000
       CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
       NODE_ENV: ${NODE_ENV:-production}

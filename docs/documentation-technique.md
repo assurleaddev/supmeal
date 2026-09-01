@@ -63,18 +63,33 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-L'étape `cp .env.example .env` n'est pas facultative, et l'oubli ne produit pas un échec obscur :
-`POSTGRES_PASSWORD`, `JWT_SECRET` et `JWT_REFRESH_SECRET` sont déclarées avec la syntaxe
-`${VAR:?message}`. Compose refuse alors de lancer quoi que ce soit et affiche la marche à suivre :
+**`docker compose up` suffit sur un dépôt fraîchement cloné.** Aucune étape préalable : les trois
+valeurs sensibles — `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` — ont une valeur de
+repli dans `docker-compose.yml`, préfixée `change_me`. La pile démarre et fonctionne.
+
+Le serveur ne s'en cache pas. Au démarrage :
 
 ```
-required variable POSTGRES_PASSWORD is missing a value: absent, copiez .env.example en .env
-avant docker compose up
+⚠️  Valeurs de démonstration en place pour les secrets JWT et le mot de passe PostgreSQL.
+   La pile fonctionne, mais ces valeurs sont publiques : elles figurent dans .env.example et
+   dans docker-compose.yml. Avant tout déploiement réel, renseignez .env avec des secrets
+   générés : openssl rand -base64 64
 ```
 
-Le choix est délibéré : donner une valeur par défaut à un mot de passe dans `docker-compose.yml`
-reviendrait à inscrire un secret dans le dépôt. Les valeurs de `.env.example` sont des exemples
-assumés comme tels — le serveur avertit au démarrage si les secrets JWT n'ont pas été remplacés.
+Ces replis **ne sont pas des secrets** : ce sont des marqueurs, de même nature que ceux de
+`.env.example`. Un secret est une valeur dont la confidentialité protège quelque chose ; une
+chaîne publiée dans un dépôt public et annoncée comme provisoire ne protège rien et ne prétend
+pas le faire. Le serveur les détecte par leur marqueur (`PLACEHOLDER_MARKERS`) plutôt que par
+comparaison à une liste de chaînes exactes, qui dériverait au premier renommage.
+
+La hiérarchie est celle de Compose : une variable présente dans `.env` **prend le pas** sur le
+repli. Un déploiement réel n'a donc rien à modifier dans `docker-compose.yml` — il renseigne
+`.env`, et les valeurs de démonstration disparaissent avec l’avertissement.
+
+Ce compromis a été tranché dans ce sens parce que le cahier des charges exige que l'application
+se lance « intégralement via docker compose et soit fonctionnelle ». Exiger un `cp` préalable
+faisait échouer cette commande sur un clone neuf, ce qui pèse plus lourd que la présence de
+marqueurs publics dans le fichier.
 
 Les 3 services démarrent dans l'ordre imposé par les directives `depends_on` / `healthcheck` :
 `postgres` (attente de `pg_isready`) → `server` → `client`.
