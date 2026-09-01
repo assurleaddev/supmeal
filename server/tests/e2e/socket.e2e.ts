@@ -163,6 +163,74 @@ async function main() {
     expect("rejoindre un cookbook dont on n'est pas membre est refusé", (await rejection) !== null);
 
     // ─────────────────────────────────────
+    // ─────────────────────────────────────
+    section('Présence');
+
+    // Observée sur une room vierge : Alice arrive la première, sa liste ne doit contenir qu'elle.
+    const alicePresence = waitFor<any>(aliceSocket.socket, 'cookbook:presence');
+    aliceSocket.socket.emit('cookbook:join', cookbookId);
+    const aliceSees = await alicePresence;
+
+    expect('le premier arrivant reçoit la liste de présence', aliceSees !== null);
+    expect('la liste porte le cookbook concerné', aliceSees?.cookbookId === cookbookId);
+    expect(
+      'le premier arrivant ne voit que lui-même',
+      aliceSees?.members?.length === 1 && aliceSees.members[0].username === `alice${stamp}`,
+      `reçu : ${JSON.stringify(aliceSees?.members)}`,
+    );
+
+    // Bob arrive ensuite : il voit Alice et lui-même, et Alice est notifiée.
+    const bobPresence = waitFor<any>(bobSocket.socket, 'cookbook:presence');
+    const aliceNotified = waitFor<any>(aliceSocket.socket, 'cookbook:joined');
+    bobSocket.socket.emit('cookbook:join', cookbookId);
+
+    const bobSees = await bobPresence;
+    const arrival = await aliceNotified;
+
+    expect(
+      'le second arrivant voit les deux membres',
+      bobSees?.members?.length === 2,
+      `reçu : ${JSON.stringify(bobSees?.members)}`,
+    );
+    expect('les membres déjà présents sont notifiés', arrival !== null);
+    expect("l'arrivée nomme l'utilisateur", arrival?.username === `bob${stamp}`);
+    expect("l'arrivée porte le cookbook", arrival?.cookbookId === cookbookId);
+    expect(
+      "un arrivant n'est pas notifié de sa propre arrivée",
+      (await waitFor<any>(bobSocket.socket, 'cookbook:joined', 1500)) === null,
+    );
+
+    // Deux onglets d'un même compte tiennent deux sockets : la liste doit dédupliquer par
+    // utilisateur, sinon Bob y figurerait deux fois.
+    const bobSecondTab = await connect(API, bob.token);
+    const tabPresence = waitFor<any>(bobSecondTab.socket, 'cookbook:presence');
+    bobSecondTab.socket.emit('cookbook:join', cookbookId);
+    const seenFromTab = await tabPresence;
+
+    expect(
+      'un compte ouvert deux fois ne compte qu’une présence',
+      seenFromTab?.members?.length === 2,
+      `reçu : ${JSON.stringify(seenFromTab?.members)}`,
+    );
+
+    // Fermer l'onglet n'émet aucun `cookbook:leave` : c'est la déconnexion qui doit le faire.
+    // Sans cela, un utilisateur restait affiché comme présent jusqu'au rechargement des autres.
+    const aliceSeesDrop = waitFor<any>(aliceSocket.socket, 'cookbook:left');
+    bobSecondTab.socket.disconnect();
+    const dropped = await aliceSeesDrop;
+
+    expect('une déconnexion brutale diffuse aussi le départ', dropped !== null);
+    expect('elle nomme le bon utilisateur', dropped?.username === `bob${stamp}`);
+    expect('elle porte le cookbook', dropped?.cookbookId === cookbookId);
+
+    // Départ explicite, puis retour — la section suivante a besoin de Bob dans la room.
+    const aliceSeesLeave = waitFor<any>(aliceSocket.socket, 'cookbook:left');
+    bobSocket.socket.emit('cookbook:leave', cookbookId);
+    const departure = await aliceSeesLeave;
+
+    expect('un départ explicite est diffusé', departure !== null);
+    expect("le départ nomme l'utilisateur", departure?.username === `bob${stamp}`);
+
     section('Diffusion temps réel');
 
     aliceSocket.socket.emit('cookbook:join', cookbookId);
