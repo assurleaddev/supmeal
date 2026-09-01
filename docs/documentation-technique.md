@@ -934,8 +934,23 @@ Le seuil d'écriture est `COMMENTER`, **pas** `EDITOR` : le gestionnaire ne refu
 `EDITOR` laisserait croire à un seuil plus haut qu'il ne l'est.
 
 L'appartenance est vérifiée **deux fois**, au `cookbook:join` puis à chaque `cookbook:sendMessage`.
-La redondance est voulue : un rôle peut être abaissé pendant que la connexion reste ouverte, et seule
-la seconde vérification le voit.
+La redondance est voulue : un rôle peut être abaissé pendant que la connexion reste ouverte, et
+seule la seconde vérification le voit.
+
+Cette course est le **seul chemin** par lequel un utilisateur voit le refus
+`Insufficient permissions`. En régime normal l’interface désactive la saisie dès que `canChat`
+est faux, et le gestionnaire de soumission s’arrête avant d’émettre : le refus serveur est donc
+inatteignable. Il ne devient visible que si le rôle change **après** le chargement de la page,
+le cache de droits du client étant alors périmé :
+
+| Moment | État |
+|---|---|
+| charlie ouvre le salon | `COMMENTER`, saisie active |
+| alice le rétrograde | `READER` côté serveur, cache client encore `COMMENTER` |
+| charlie envoie | le serveur refuse, le client affiche « Votre rôle ne permet pas d’écrire dans ce salon » |
+
+C’est ce que vaut la seconde vérification : sans elle, un message serait écrit malgré la
+rétrogradation.
 
 **Les cinq événements sont consommés par le client.** L’onglet Chat affiche une barre de
 présence — compteur et avatars empilés — et traduit les refus en notification.
