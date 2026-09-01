@@ -100,12 +100,26 @@ conteneur exécute `npx prisma db push --accept-data-loss` avant `node dist/serv
 
 ### URLs d'accès
 
-| Service | URL | Mapping de ports |
-|---|---|---|
-| Application web | http://localhost:8080 | `8080` (hôte) → `80` (nginx dans le conteneur) |
-| API REST | http://localhost:3000/api | `3000` → `3000` |
-| Health check | http://localhost:3000/api/health | — |
-| PostgreSQL | `localhost:5432` | `5432` → `5432` |
+| Service | URL | Mapping de ports | Variable |
+|---|---|---|---|
+| Application web | http://localhost:8080 | `8080` (hôte) → `80` (nginx dans le conteneur) | `CLIENT_PORT` |
+| API REST | http://localhost:3000/api | `3000` → `3000` | `SERVER_PORT` |
+| Health check | http://localhost:3000/api/health | — | — |
+| PostgreSQL | `localhost:5432` | `5432` → `5432` | `POSTGRES_PORT` |
+
+**Les trois ports hôte sont redéfinissables.** Si l’un est déjà occupé — un autre PostgreSQL sur
+`5432` est le cas le plus courant — il suffit de le déplacer dans `.env` sans toucher au fichier
+Compose :
+
+```bash
+echo "POSTGRES_PORT=5433" >> .env
+docker compose up -d
+```
+
+Les ports **internes** ne changent jamais : les services se joignent par leur nom sur le réseau
+Docker (`postgres:5432`, `server:3000`), indépendamment de ce qui est publié sur l’hôte. Déplacer
+`CLIENT_PORT` ou `SERVER_PORT` demande en revanche d’aligner `CLIENT_URL` et
+`OAUTH_CALLBACK_BASE`, qui sont des URL vues du navigateur.
 
 Le navigateur n'appelle jamais `localhost:3000` directement : nginx (`client/nginx.conf`) relaie
 `/api/`, `/uploads/` et `/socket.io/` (avec mise à niveau WebSocket) vers le service `server`.
@@ -231,6 +245,28 @@ npm run dev        # :5173, proxy Vite vers :3000 pour /api, /uploads et /socket
 docker compose down          # arrêt, volumes conservés
 docker compose down -v       # arrêt + suppression des données (postgres_data, uploads_data)
 ```
+
+### Noms de conteneurs et instances parallèles
+
+Aucun `container_name` n’est imposé : Compose dérive les noms du nom de projet, lui-même dérivé
+du répertoire — `supmeal-postgres-1`, `supmeal-server-1`, `supmeal-client-1`. Deux conséquences
+utiles.
+
+La pile **cohabite** avec n’importe quel autre conteneur, y compris un homonyme : un nom fixe
+aurait provoqué un `Conflict. The container name "/supmeal_db" is already in use`, et le
+lancement aurait échoué sans que la cause soit évidente.
+
+Et **deux instances tournent en parallèle**, à condition de leur donner un nom de projet et des
+ports distincts :
+
+```bash
+CLIENT_PORT=8081 SERVER_PORT=3001 POSTGRES_PORT=5433 docker compose -p supmeal2 up -d
+```
+
+Chaque projet reçoit son propre réseau et ses propres volumes (`supmeal2_postgres_data`), donc
+ses propres données. `docker compose -p supmeal2 down -v` ne démonte que celle-là — le nom de
+projet est ce qui borne la portée de la commande, et c’est la raison de préférer
+`docker compose down` à un `docker stop` global.
 
 ---
 
@@ -911,7 +947,7 @@ graph TB
 
     subgraph "Hôte Docker"
         subgraph "conteneur client"
-            NG["nginx<br/>:80 (publié en 8080)"]
+            NG["nginx<br/>:80 → 8080 par défaut"]
             ST["Fichiers statiques<br/>(build Vite)"]
         end
 
@@ -974,10 +1010,14 @@ La **connexion** OAuth2, elle, passe bien par nginx : son bouton utilise un lien
 `VITE_API_URL` est vide en Docker. C’est ce qui rend la publication du port `3000` nécessaire, et
 non un simple confort de débogage.
 
-**Ports publiés sur l'hôte.** Le client est exposé en `8080→80` : le port `80` du schéma n'est
-joignable que depuis le réseau Docker, et c'est bien `http://localhost:8080` qu'il faut ouvrir. L'API
-(`3000`) et PostgreSQL (`5432`) sont également publiés — le premier pour les callbacks OAuth2 et le
-débogage, le second pour l'inspection de la base.
+**Ports publiés sur l’hôte.** Le client est exposé en `8080→80` : le port `80` du schéma n’est
+joignable que depuis le réseau Docker, et c’est bien `http://localhost:8080` qu’il faut ouvrir.
+L’API (`3000`) et PostgreSQL (`5432`) sont également publiés — le premier pour les callbacks
+OAuth2 et le débogage, le second pour l’inspection de la base.
+
+Ces trois valeurs sont des **défauts**, portés par `CLIENT_PORT`, `SERVER_PORT` et
+`POSTGRES_PORT` : une collision avec un autre conteneur se règle dans `.env`, sans toucher au
+fichier Compose. Les ports internes du schéma, eux, ne varient pas.
 
 **Aucun TLS dans cette pile.** L'arête d'entrée est en clair : nginx n'écoute que sur `:80`, sans
 `ssl_certificate` ni `listen 443`. Une mise en production exigerait un terminateur TLS en amont ;

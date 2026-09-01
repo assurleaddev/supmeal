@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: supmeal_db
     restart: unless-stopped
     # Les trois valeurs sensibles de cette pile ont une valeur de repli préfixée « change_me ». Le
     # cahier des charges exige que l'application se lance « intégralement via docker compose » : sur
@@ -17,8 +16,14 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-supmeal}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Les ports hôte sont redéfinissables. Aucun nom de conteneur n'est imposé non plus : Compose les
+    # dérive du nom de projet, ce qui laisse cette pile cohabiter avec d'autres conteneurs et
+    # autoriser deux instances en parallèle (`docker compose -p autre up`).
+    #
+    # Le port *interne* ne change jamais : les services se joignent par leur nom sur le réseau
+    # Docker, indépendamment de ce qui est publié sur l'hôte.
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-supmeal} -d ${POSTGRES_DB:-supmeal}"]
       interval: 10s
@@ -29,7 +34,6 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: supmeal_server
     restart: unless-stopped
     depends_on:
       postgres:
@@ -58,7 +62,7 @@ services:
     volumes:
       - uploads_data:/app/uploads
     ports:
-      - "3000:3000"
+      - "${SERVER_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 30s
@@ -71,12 +75,11 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-}
-    container_name: supmeal_client
     restart: unless-stopped
     depends_on:
       - server
     ports:
-      - "8080:80"
+      - "${CLIENT_PORT:-8080}:80"
 
 volumes:
   postgres_data:
