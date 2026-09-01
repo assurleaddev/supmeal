@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../store/authStore';
-import { Message } from '../types';
+import { Message, Presence, PresenceMember } from '../types';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
@@ -46,7 +46,50 @@ export function useSocket() {
     return () => { socketRef.current?.off('cookbook:message', handler); };
   }, []);
 
-  return { joinCookbook, leaveCookbook, sendMessage, onMessage };
+  /**
+   * État de présence de la room, envoyé au seul arrivant lors du `cookbook:join`.
+   *
+   * Il est indispensable : `cookbook:joined` n'est diffusé qu'aux **autres** membres, si bien qu'un
+   * arrivant ne saurait jamais qui est déjà là et verrait une liste vide jusqu'à la prochaine
+   * arrivée.
+   */
+  const onPresence = useCallback((handler: (p: Presence) => void) => {
+    socketRef.current?.on('cookbook:presence', handler);
+    return () => { socketRef.current?.off('cookbook:presence', handler); };
+  }, []);
+
+  const onJoined = useCallback((handler: (m: PresenceMember & { cookbookId: string }) => void) => {
+    socketRef.current?.on('cookbook:joined', handler);
+    return () => { socketRef.current?.off('cookbook:joined', handler); };
+  }, []);
+
+  const onLeft = useCallback((handler: (m: PresenceMember & { cookbookId: string }) => void) => {
+    socketRef.current?.on('cookbook:left', handler);
+    return () => { socketRef.current?.off('cookbook:left', handler); };
+  }, []);
+
+  /**
+   * Refus émis par le serveur — appartenance manquante, rôle insuffisant.
+   *
+   * Sans abonnement, le serveur refusait en silence : l'interface désactive déjà la saisie pour un
+   * `READER`, donc le cas n'était atteignable qu'en la contournant, mais l'utilisateur n'avait alors
+   * aucun retour.
+   */
+  const onSocketError = useCallback((handler: (reason: string) => void) => {
+    socketRef.current?.on('error', handler);
+    return () => { socketRef.current?.off('error', handler); };
+  }, []);
+
+  return {
+    joinCookbook,
+    leaveCookbook,
+    sendMessage,
+    onMessage,
+    onPresence,
+    onJoined,
+    onLeft,
+    onSocketError,
+  };
 }
 
 export function disconnectSocket() {

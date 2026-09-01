@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Box, Typography, Paper, Grid, Button, IconButton, Avatar, Chip,
-  Tab, Tabs, TextField, Divider, FormControl, InputLabel, Select,
+  Tab, Tabs, TextField, Divider, FormControl, InputLabel, Select, Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -16,7 +16,7 @@ import { cookbookApi, recipeApi, RecipeFilters } from '../../api';
 import { useAuthStore } from '../../store/authStore';
 import { useSocket } from '../../hooks/useSocket';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Message, CookbookRole } from '../../types';
+import { Message, CookbookRole, PresenceMember } from '../../types';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import RecipeCard from '../../components/recipes/RecipeCard';
@@ -42,6 +42,7 @@ export default function CookbookDetail() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 400);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [present, setPresent] = useState<PresenceMember[]>([]);
   const [msgInput, setMsgInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -49,7 +50,16 @@ export default function CookbookDetail() {
   const [inviteRole, setInviteRole] = useState<CookbookRole>('READER');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
-  const { joinCookbook, leaveCookbook, sendMessage, onMessage } = useSocket();
+  const {
+    joinCookbook,
+    leaveCookbook,
+    sendMessage,
+    onMessage,
+    onPresence,
+    onJoined,
+    onLeft,
+    onSocketError,
+  } = useSocket();
 
   const { data: cookbook, isLoading } = useQuery({
     queryKey: ['cookbook', id],
@@ -74,9 +84,50 @@ export default function CookbookDetail() {
 
   useEffect(() => {
     if (!id) return;
+
+    // Les abonnements sont posés AVANT le join : `cookbook:presence` arrive en réponse immédiate,
+    // et s'abonner après le laisserait passer.
+    const offMessage = onMessage((msg) => setMessages((prev) => [...prev, msg]));
+
+    const offPresence = onPresence((p) => {
+      if (p.cookbookId !== id) return;
+      setPresent(p.members);
+    });
+
+    const offJoined = onJoined((m) => {
+      if (m.cookbookId !== id) return;
+      // Un même compte peut tenir deux onglets : la liste reste indexée par utilisateur.
+      setPresent((prev) =>
+        prev.some((p) => p.userId === m.userId) ? prev : [...prev, { userId: m.userId, username: m.username }],
+      );
+    });
+
+    const offLeft = onLeft((m) => {
+      if (m.cookbookId !== id) return;
+      setPresent((prev) => prev.filter((p) => p.userId !== m.userId));
+    });
+
+    const offError = onSocketError((reason) => {
+      toast.error(
+        reason === 'Insufficient permissions'
+          ? "Votre rôle ne permet pas d'écrire dans ce salon."
+          : reason === 'Not a member of this cookbook'
+            ? "Vous n'êtes pas membre de ce cookbook."
+            : reason,
+      );
+    });
+
     joinCookbook(id);
-    const cleanup = onMessage((msg) => setMessages((prev) => [...prev, msg]));
-    return () => { cleanup(); leaveCookbook(id); };
+
+    return () => {
+      offMessage();
+      offPresence();
+      offJoined();
+      offLeft();
+      offError();
+      leaveCookbook(id);
+      setPresent([]);
+    };
   }, [id]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -264,8 +315,54 @@ export default function CookbookDetail() {
       {/* Chat tab */}
       {tabIndex === 2 && (
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, display: 'flex', flexDirection: 'column', height: '60vh' }}>
-          <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
             <Typography fontWeight={600}>💬 Messagerie du cookbook</Typography>
+
+            {/* Présence : alimentée par `cookbook:presence` à l'arrivée, puis tenue à jour par
+                `cookbook:joined` et `cookbook:left`. Le libellé se lit sans les pastilles, pour un
+                lecteur d'écran comme pour un daltonien. */}
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}
+              aria-live="polite"
+              aria-label={
+                present.length === 0
+                  ? 'Personne connecté'
+                  : `${present.length} connecté${present.length > 1 ? 's' : ''} : ${present.map((p) => p.username).join(', ')}`
+              }
+            >
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: present.length > 0 ? 'success.main' : 'grey.400', flexShrink: 0 }} />
+              <Typography variant="caption" color="text.secondary">
+                {present.length === 0
+                  ? 'personne connecté'
+                  : `${present.length} connecté${present.length > 1 ? 's' : ''}`}
+              </Typography>
+              <Box sx={{ display: 'flex', ml: 0.5 }}>
+                {present.slice(0, 5).map((p, i) => (
+                  <Tooltip key={p.userId} title={p.username}>
+                    <Avatar
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        bgcolor: p.userId === user?.id ? 'primary.main' : 'primary.50',
+                        color: p.userId === user?.id ? 'white' : 'primary.main',
+                        border: '2px solid',
+                        borderColor: 'background.paper',
+                        ml: i === 0 ? 0 : '-6px',
+                      }}
+                    >
+                      {p.username.charAt(0).toUpperCase()}
+                    </Avatar>
+                  </Tooltip>
+                ))}
+                {present.length > 5 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5, alignSelf: 'center' }}>
+                    +{present.length - 5}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
           </Box>
           <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {messages.length === 0 && (

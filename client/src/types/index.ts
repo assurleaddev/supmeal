@@ -137,6 +137,18 @@ export interface Message {
   user?: { id: string; username: string; avatar?: string | null };
 }
 
+/** Membre connecté au salon d'un cookbook. */
+export interface PresenceMember {
+  userId: string;
+  username: string;
+}
+
+/** État de présence complet, envoyé au seul arrivant lors du `cookbook:join`. */
+export interface Presence {
+  cookbookId: string;
+  members: PresenceMember[];
+}
+
 export interface MealPlan {
   id: string;
   userId: string;
